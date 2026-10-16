@@ -2,27 +2,39 @@
 #   .\scripts\deploy.ps1                                   deploy, keeping saved settings
 #   .\scripts\deploy.ps1 -Email you@example.com            also subscribe an email address
 #   .\scripts\deploy.ps1 -Email you@example.com -EmailOn failures   only failures by email
+#   .\scripts\deploy.ps1 -NoEmail                          remove the email subscription
 #   .\scripts\deploy.ps1 -WebOnly                          republish the website files only
-# Settings given here are saved to samconfig.toml, so later deploys keep them.
+# The email setting is kept in .laneflow.local.json, which Git ignores, so a personal
+# address never ends up in the repository. Later deploys reuse it automatically.
 param(
     [string]$Email,
-    [ValidateSet("all", "failures")][string]$EmailOn = "all",
+    [ValidateSet("all", "failures")][string]$EmailOn,
+    [switch]$NoEmail,
     [switch]$WebOnly
 )
 
 $region = "ap-southeast-2"
 $stack = "laneflow"
+$settingsFile = ".laneflow.local.json"
 $env:SAM_CLI_TELEMETRY = "0"
 Set-Location (Split-Path $PSScriptRoot -Parent)
+
+# ---- Local settings (never committed) ----
+$settings = @{ email = ""; emailOn = "all" }
+if (Test-Path $settingsFile) {
+    $saved = Get-Content $settingsFile -Raw | ConvertFrom-Json
+    $settings.email = [string]$saved.email
+    if ($saved.emailOn) { $settings.emailOn = [string]$saved.emailOn }
+}
+if ($NoEmail) { $settings.email = "" }
+if ($Email) { $settings.email = $Email }
+if ($EmailOn) { $settings.emailOn = $EmailOn }
+$settings | ConvertTo-Json | Set-Content $settingsFile -Encoding utf8
 
 if (-not $WebOnly) {
     sam build
     if ($LASTEXITCODE -ne 0) { Write-Error "Build failed."; exit 1 }
-    if ($Email) {
-        sam deploy --parameter-overrides "NotificationEmail=$Email" "EmailNotifications=$EmailOn" --save-params
-    } else {
-        sam deploy
-    }
+    sam deploy --parameter-overrides "NotificationEmail=$($settings.email)" "EmailNotifications=$($settings.emailOn)"
     if ($LASTEXITCODE -ne 0) { Write-Error "Deploy failed."; exit 1 }
 }
 

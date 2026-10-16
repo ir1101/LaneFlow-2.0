@@ -4,3 +4,4 @@ __pycache__/
 test-data/
 results/raw/
 web/samples/
+.laneflow.local.json
