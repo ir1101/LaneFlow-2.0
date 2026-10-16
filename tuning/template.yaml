@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  LaneFlow memory tuning. Deploys AWS Lambda Power Tuning (open source, from the
+  Serverless Application Repository), allowed to tune only LaneFlow's own functions.
+  A separate stack, so it can be removed as soon as tuning is finished.
+
+Resources:
+  PowerTuning:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location:
+        ApplicationId: arn:aws:serverlessrepo:us-east-1:451282441545:applications/aws-lambda-power-tuning
+        SemanticVersion: "4.4.0"
+      Parameters:
+        lambdaResource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:laneflow-*"
+
+Outputs:
+  StateMachineARN:
+    Value: !GetAtt PowerTuning.Outputs.StateMachineARN

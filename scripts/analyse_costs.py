@@ -136,7 +136,7 @@ def build_rows(prefix):
             d["job"] = item
         elif item["sk"] == "RESULT":
             d["result"] = item
-        elif item["sk"].startswith("COST#"):
+        elif item["sk"].startswith("COST#") and item["sk"] != "COST#TOTAL":  # TOTAL is the reconciler's sum
             d["costs"][item["component"]] = item
 
     billed = billed_durations()

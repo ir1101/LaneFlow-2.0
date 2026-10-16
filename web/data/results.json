@@ -2,22 +2,27 @@
   "source": "results/final_per_document.csv",
   "region": "ap-southeast-2",
   "rounds": 5,
-  "documents": 91,
+  "documents": 90,
+  "lanes": {
+    "light": 256,
+    "heavy": 1024,
+    "baseline": 3008
+  },
   "files": [
     {
       "file": "doc-001p.pdf",
       "pages": 1,
       "lane": "light",
       "adaptive": {
-        "processingUsd": 9.351675975e-06,
-        "totalUsd": 1.47651176375e-05,
-        "extractMs": 208.0,
-        "warmRuns": 4
+        "processingUsd": 8.986674150000001e-06,
+        "totalUsd": 1.5637656575000002e-05,
+        "extractMs": 294.0,
+        "warmRuns": 5
       },
       "baseline": {
-        "processingUsd": 1.19808589875e-05,
-        "totalUsd": 1.6623402525e-05,
-        "extractMs": 131.0,
+        "processingUsd": 1.2725029374999999e-05,
+        "totalUsd": 1.8715927249999998e-05,
+        "extractMs": 150.0,
         "warmRuns": 5
       }
     },
@@ -26,15 +31,15 @@
       "pages": 3,
       "lane": "light",
       "adaptive": {
-        "processingUsd": 8.38667115e-06,
-        "totalUsd": 1.3182569099999998e-05,
-        "extractMs": 109.0,
+        "processingUsd": 8.3633377e-06,
+        "totalUsd": 1.44100895e-05,
+        "extractMs": 219.0,
         "warmRuns": 5
       },
       "baseline": {
-        "processingUsd": 1.04141844875e-05,
-        "totalUsd": 1.50708947625e-05,
-        "extractMs": 91.0,
+        "processingUsd": 1.06491856625e-05,
+        "totalUsd": 1.65092292375e-05,
+        "extractMs": 97.0,
         "warmRuns": 5
       }
     },
@@ -43,15 +48,15 @@
       "pages": 8,
       "lane": "light",
       "adaptive": {
-        "processingUsd": 9.143341600000001e-06,
-        "totalUsd": 1.398342675e-05,
-        "extractMs": 227.0,
+        "processingUsd": 9.08667465e-06,
+        "totalUsd": 1.5413468475e-05,
+        "extractMs": 432.0,
         "warmRuns": 5
       },
       "baseline": {
-        "processingUsd": 1.26075287875e-05,
-        "totalUsd": 1.7386759987499998e-05,
-        "extractMs": 147.0,
+        "processingUsd": 1.15108566375e-05,
+        "totalUsd": 1.7370900212499997e-05,
+        "extractMs": 119.0,
         "warmRuns": 5
       }
     },
@@ -60,15 +65,15 @@
       "pages": 15,
       "lane": "light",
       "adaptive": {
-        "processingUsd": 1.0576682099999999e-05,
-        "totalUsd": 1.5620142225e-05,
-        "extractMs": 395.0,
+        "processingUsd": 1.0628346825e-05,
+        "totalUsd": 1.733855715e-05,
+        "extractMs": 750.0,
         "warmRuns": 5
       },
       "baseline": {
-        "processingUsd": 1.40958695625e-05,
-        "totalUsd": 1.88184338125e-05,
-        "extractMs": 185.0,
+        "processingUsd": 1.29991974125e-05,
+        "totalUsd": 1.8957595125e-05,
+        "extractMs": 157.0,
         "warmRuns": 5
       }
     },
@@ -77,49 +82,49 @@
       "pages": 25,
       "lane": "light",
       "adaptive": {
-        "processingUsd": 1.18566885e-05,
-        "totalUsd": 1.7216044475e-05,
-        "extractMs": 571.0,
+        "processingUsd": 1.20233538e-05,
+        "totalUsd": 1.9126980675e-05,
+        "extractMs": 1162.0,
         "warmRuns": 5
       },
       "baseline": {
-        "processingUsd": 1.63675475875e-05,
-        "totalUsd": 2.1136778737499997e-05,
-        "extractMs": 243.0,
+        "processingUsd": 1.5349209162499998e-05,
+        "totalUsd": 2.1315106912499997e-05,
+        "extractMs": 217.0,
         "warmRuns": 5
       }
     },
     {
       "file": "doc-040p.pdf",
       "pages": 40,
-      "lane": "heavy",
+      "lane": "light",
       "adaptive": {
-        "processingUsd": 1.8491057609179688e-05,
-        "totalUsd": 2.3769559534179686e-05,
-        "extractMs": 453.0,
+        "processingUsd": 1.4301698525e-05,
+        "totalUsd": 2.21679714e-05,
+        "extractMs": 1830.0,
         "warmRuns": 5
       },
       "baseline": {
-        "processingUsd": 1.8012555812499998e-05,
-        "totalUsd": 2.2897641187499997e-05,
-        "extractMs": 285.0,
+        "processingUsd": 1.828672385e-05,
+        "totalUsd": 2.4498476475e-05,
+        "extractMs": 292.0,
         "warmRuns": 5
       }
     },
     {
       "file": "doc-080p.pdf",
       "pages": 80,
-      "lane": "heavy",
+      "lane": "light",
       "adaptive": {
-        "processingUsd": 2.3830068679101564e-05,
-        "totalUsd": 2.9578613579101563e-05,
-        "extractMs": 682.0,
+        "processingUsd": 2.0493396150000003e-05,
+        "totalUsd": 3.0220043950000003e-05,
+        "extractMs": 3696.0,
         "warmRuns": 5
       },
       "baseline": {
-        "processingUsd": 2.50234242e-05,
-        "totalUsd": 3.0256031625000002e-05,
-        "extractMs": 464.0,
+        "processingUsd": 2.6511764975000002e-05,
+        "totalUsd": 3.27652251e-05,
+        "extractMs": 502.0,
         "warmRuns": 5
       }
     },
@@ -128,16 +133,16 @@
       "pages": 150,
       "lane": "heavy",
       "adaptive": {
-        "processingUsd": 3.583952976777344e-05,
-        "totalUsd": 4.184033894941406e-05,
-        "extractMs": 1193.0,
+        "processingUsd": 3.4241798225e-05,
+        "totalUsd": 4.21989252e-05,
+        "extractMs": 1951.0,
         "warmRuns": 5
       },
       "baseline": {
-        "processingUsd": 3.565722736875001e-05,
-        "totalUsd": 4.121949086875001e-05,
-        "extractMs": 735.5,
-        "warmRuns": 4
+        "processingUsd": 4.0494334887499996e-05,
+        "totalUsd": 4.70903576625e-05,
+        "extractMs": 859.0,
+        "warmRuns": 5
       }
     },
     {
@@ -145,47 +150,289 @@
       "pages": 300,
       "lane": "heavy",
       "adaptive": {
-        "processingUsd": 5.906376047167968e-05,
-        "totalUsd": 6.657515949667969e-05,
-        "extractMs": 2181.0,
+        "processingUsd": 5.705357895e-05,
+        "totalUsd": 6.696441465e-05,
+        "extractMs": 3655.0,
         "warmRuns": 5
       },
       "baseline": {
-        "processingUsd": 6.10569377e-05,
-        "totalUsd": 6.7428087275e-05,
-        "extractMs": 1384.0,
+        "processingUsd": 7.20628260625e-05,
+        "totalUsd": 7.95648695125e-05,
+        "extractMs": 1665.0,
         "warmRuns": 5
       }
     }
   ],
   "savings": {
     "all": {
-      "processing": 0.09100969905260747,
-      "total": 0.0570351237319533
+      "processing": 0.2058590532388047,
+      "total": 0.12034343078936371
     },
     "light": {
-      "processing": 0.2467071869292814,
-      "total": 0.16026019133040437
+      "processing": 0.2235309226410288,
+      "total": 0.10535824534264948
     },
     "heavy": {
-      "processing": 0.01807317303353917,
-      "total": 0.0002322565286295708
+      "processing": 0.18889765516069545,
+      "total": 0.1381063199297049
     }
   },
   "orchestration": {
     "adaptive": {
-      "expressUsd": 1.723104455e-05,
-      "standardUsd": 0.000140311690475,
-      "ratio": 8.14295906831719
+      "expressUsd": 1.9126980675e-05,
+      "standardUsd": 0.000166668355675,
+      "ratio": 8.713782823697029
     },
     "baseline": {
-      "expressUsd": 2.0927204512499998e-05,
-      "standardUsd": 9.456254826250001e-05,
-      "ratio": 4.518642143818922
+      "expressUsd": 2.1315106912499997e-05,
+      "standardUsd": 0.00012000254441249999,
+      "ratio": 5.629929275284371
     }
   },
   "coldStarts": {
-    "adaptive": 2,
-    "baseline": 1
-  }
+    "adaptive": 0,
+    "baseline": 0
+  },
+  "previous": {
+    "lanes": {
+      "light": 512,
+      "heavy": 1769,
+      "baseline": 3008
+    },
+    "savings": {
+      "all": {
+        "processing": 0.09100969905260747,
+        "total": 0.0570351237319533
+      },
+      "light": {
+        "processing": 0.2467071869292814,
+        "total": 0.16026019133040437
+      },
+      "heavy": {
+        "processing": 0.01807317303353917,
+        "total": 0.0002322565286295708
+      }
+    }
+  },
+  "tuning": [
+    {
+      "function": "extract-baseline",
+      "pages": 1,
+      "best": 256,
+      "settings": [
+        {
+          "memoryMb": 128,
+          "ms": 341.0,
+          "usd": 5.814e-07
+        },
+        {
+          "memoryMb": 256,
+          "ms": 137.4,
+          "usd": 4.692e-07
+        },
+        {
+          "memoryMb": 512,
+          "ms": 87.6,
+          "usd": 5.984e-07
+        },
+        {
+          "memoryMb": 1024,
+          "ms": 78.4,
+          "usd": 1.0744e-06
+        },
+        {
+          "memoryMb": 1769,
+          "ms": 79.4,
+          "usd": 1.8795625e-06
+        },
+        {
+          "memoryMb": 3008,
+          "ms": 77.1,
+          "usd": 3.1160999999999997e-06
+        }
+      ]
+    },
+    {
+      "function": "extract-baseline",
+      "pages": 8,
+      "best": 128,
+      "settings": [
+        {
+          "memoryMb": 128,
+          "ms": 854.1,
+          "usd": 1.4535e-06
+        },
+        {
+          "memoryMb": 256,
+          "ms": 474.1,
+          "usd": 1.615e-06
+        },
+        {
+          "memoryMb": 512,
+          "ms": 243.4,
+          "usd": 1.6592e-06
+        },
+        {
+          "memoryMb": 1024,
+          "ms": 169.5,
+          "usd": 2.312e-06
+        },
+        {
+          "memoryMb": 1769,
+          "ms": 133.1,
+          "usd": 3.1482671875e-06
+        },
+        {
+          "memoryMb": 3008,
+          "ms": 113.6,
+          "usd": 4.59425e-06
+        }
+      ]
+    },
+    {
+      "function": "extract-baseline",
+      "pages": 25,
+      "best": 128,
+      "settings": [
+        {
+          "memoryMb": 128,
+          "ms": 2329.1,
+          "usd": 3.961e-06
+        },
+        {
+          "memoryMb": 256,
+          "ms": 1178.1,
+          "usd": 4.0086e-06
+        },
+        {
+          "memoryMb": 512,
+          "ms": 668.9,
+          "usd": 4.556e-06
+        },
+        {
+          "memoryMb": 1024,
+          "ms": 342.6,
+          "usd": 4.6784e-06
+        },
+        {
+          "memoryMb": 1769,
+          "ms": 246.2,
+          "usd": 5.80314921875e-06
+        },
+        {
+          "memoryMb": 3008,
+          "ms": 242.6,
+          "usd": 9.707849999999999e-06
+        }
+      ]
+    },
+    {
+      "function": "extract-baseline",
+      "pages": 80,
+      "best": 256,
+      "settings": [
+        {
+          "memoryMb": 256,
+          "ms": 3549.3,
+          "usd": 1.207e-05
+        },
+        {
+          "memoryMb": 512,
+          "ms": 1777.4,
+          "usd": 1.2090399999999999e-05
+        },
+        {
+          "memoryMb": 1024,
+          "ms": 1044.3,
+          "usd": 1.4211999999999999e-05
+        },
+        {
+          "memoryMb": 1769,
+          "ms": 614.9,
+          "usd": 1.4472631249999998e-05
+        },
+        {
+          "memoryMb": 3008,
+          "ms": 495.5,
+          "usd": 1.985515e-05
+        }
+      ]
+    },
+    {
+      "function": "extract-baseline",
+      "pages": 300,
+      "best": 256,
+      "settings": [
+        {
+          "memoryMb": 256,
+          "ms": 13350.7,
+          "usd": 4.53968e-05
+        },
+        {
+          "memoryMb": 512,
+          "ms": 6767.2,
+          "usd": 4.6022399999999995e-05
+        },
+        {
+          "memoryMb": 1024,
+          "ms": 3613.7,
+          "usd": 4.9164e-05
+        },
+        {
+          "memoryMb": 1769,
+          "ms": 2128.5,
+          "usd": 5.004335156249999e-05
+        },
+        {
+          "memoryMb": 3008,
+          "ms": 2151.5,
+          "usd": 8.601235e-05
+        }
+      ]
+    },
+    {
+      "function": "classifier",
+      "pages": 1,
+      "best": 256,
+      "settings": [
+        {
+          "memoryMb": 128,
+          "ms": 83.1,
+          "usd": 1.4279999999999998e-07
+        },
+        {
+          "memoryMb": 256,
+          "ms": 36.8,
+          "usd": 1.292e-07
+        },
+        {
+          "memoryMb": 512,
+          "ms": 34.9,
+          "usd": 2.4479999999999997e-07
+        }
+      ]
+    },
+    {
+      "function": "classifier",
+      "pages": 300,
+      "best": 128,
+      "settings": [
+        {
+          "memoryMb": 128,
+          "ms": 218.1,
+          "usd": 3.7229999999999997e-07
+        },
+        {
+          "memoryMb": 256,
+          "ms": 142.7,
+          "usd": 4.895999999999999e-07
+        },
+        {
+          "memoryMb": 512,
+          "ms": 81.7,
+          "usd": 5.643999999999999e-07
+        }
+      ]
+    }
+  ]
 }

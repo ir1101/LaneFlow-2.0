@@ -20,6 +20,13 @@ foreach ($bucket in "laneflow-uploads-$account-$region", "laneflow-curated-$acco
     }
 }
 
+# The memory-tuning stack is separate and optional; remove it first if it exists.
+aws cloudformation describe-stacks --stack-name "$stack-tuning" --region $region 2>$null | Out-Null
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "Removing the memory-tuning stack"
+    sam delete --stack-name "$stack-tuning" --region $region --no-prompts
+}
+
 sam delete --stack-name $stack --region $region --no-prompts
 if ($LASTEXITCODE -ne 0) { Write-Error "Stack deletion failed."; exit 1 }
 

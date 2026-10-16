@@ -199,10 +199,10 @@
         </div>
 
         <div class="figures" data-figures>
-          <div class="figure figure--lead" data-reveal style="--d: 1"><p class="figure-value" data-count="light.processing">0%</p><p class="figure-label">cheaper processing for small PDFs, which take the light lane</p></div>
-          <div class="figure" data-reveal style="--d: 2"><p class="figure-value" data-count="heavy.processing">0%</p><p class="figure-label">for large PDFs in the heavy lane: close to no difference</p></div>
-          <div class="figure" data-reveal style="--d: 3"><p class="figure-value" data-count="all.processing">0%</p><p class="figure-label">cheaper processing across an even mix of sizes</p></div>
-          <div class="figure" data-reveal style="--d: 4"><p class="figure-value" data-count="all.total">0%</p><p class="figure-label">cheaper end to end, once queueing, orchestration and storage are included</p></div>
+          <div class="figure figure--lead" data-reveal style="--d: 1"><p class="figure-value" data-count="light.processing">0%</p><p class="figure-label" data-figure-label="light.processing">cheaper processing for smaller PDFs, which take the light lane</p></div>
+          <div class="figure" data-reveal style="--d: 2"><p class="figure-value" data-count="heavy.processing">0%</p><p class="figure-label" data-figure-label="heavy.processing">cheaper processing for large PDFs, which take the heavy lane</p></div>
+          <div class="figure" data-reveal style="--d: 3"><p class="figure-value" data-count="all.processing">0%</p><p class="figure-label" data-figure-label="all.processing">cheaper processing across an even mix of sizes</p></div>
+          <div class="figure" data-reveal style="--d: 4"><p class="figure-value" data-count="all.total">0%</p><p class="figure-label" data-figure-label="all.total">cheaper end to end, once queueing, orchestration and storage are included</p></div>
         </div>
 
         <figure class="chart-card" data-reveal>
@@ -229,11 +229,31 @@
         <div class="explain">
           <div data-reveal style="--d: 1">
             <h3>Small documents wait</h3>
-            <p>Most of a small file's time is spent waiting on S3 and DynamoDB over the network. Extra memory does not make waiting any faster, so the 3008 MB baseline pays for memory that sits idle. A 512 MB lane does the same work for less.</p>
+            <p>Most of a small file's time is spent waiting on S3 and DynamoDB over the network. Extra memory does not make waiting any faster, so the 3008 MB baseline pays for memory that sits idle. A 256 MB lane does the same work for a fraction of the cost.</p>
           </div>
           <div data-reveal style="--d: 2">
             <h3>Large documents compute</h3>
-            <p>Extracting text from a large file is pure computation. Lambda gives CPU in proportion to memory, so the bigger function finishes sooner and the bill stays roughly level. Right-sizing saves little here.</p>
+            <p>Extracting text from a large file is pure computation. Up to about 1769 MB, Lambda adds CPU in proportion to memory, so the job finishes sooner and the bill stays roughly level. Beyond that, a single-threaded job cannot use the extra CPU: in tuning, 3008 MB was no faster than 1769 MB and cost almost twice as much.</p>
+          </div>
+        </div>
+
+        <div class="tuning" data-tuning data-reveal>
+          <div class="tuning-copy">
+            <h3>Tuned, not guessed</h3>
+            <p>Each lane's memory comes from AWS Lambda Power Tuning. Every document size ran ten times at each setting, with the fastest and slowest fifth of runs discarded. The rule is the cheapest memory that extracts a document in under five seconds.</p>
+            <p class="tuning-sub">Processing saving across an even mix of sizes</p>
+            <dl class="before-after" data-before-after></dl>
+          </div>
+          <div class="tuning-grid">
+            <table class="tuning-table" data-tuning-table>
+              <caption>Extractor cost per run, relative to the cheapest setting for each document. Average run time beneath.</caption>
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+            <ul class="tuning-legend" aria-hidden="true">
+              <li><span class="mark mark--cheapest"></span>Cheapest setting</li>
+              <li><span class="mark mark--chosen"></span>Setting the lane uses</li>
+            </ul>
           </div>
         </div>
 
@@ -319,10 +339,10 @@
               <g class="node"><rect x="450" y="200" width="170" height="64" rx="4"/><text x="466" y="224" class="node-type">SQS</text><text x="466" y="247" class="node-name">Job queue</text></g>
               <g class="node node--lambda"><rect x="660" y="200" width="170" height="64" rx="4"/><text x="676" y="224" class="node-type">Lambda · 128 MB</text><text x="676" y="247" class="node-name">Dispatcher</text></g>
 
-              <g class="node node--lambda"><rect x="890" y="196" width="130" height="56" rx="4"/><text x="904" y="218" class="node-type">Lambda · 256 MB</text><text x="904" y="239" class="node-name">Classifier</text></g>
+              <g class="node node--lambda"><rect x="890" y="196" width="130" height="56" rx="4"/><text x="904" y="218" class="node-type">Lambda · 128 MB</text><text x="904" y="239" class="node-name">Classifier</text></g>
               <g class="node node--choice"><path d="M955 324 L971 340 L955 356 L939 340 Z"/><text x="930" y="376" class="node-type" text-anchor="middle">choice</text></g>
-              <g class="node node--lane node--light"><rect x="1015" y="262" width="140" height="44" rx="4"/><text x="1029" y="282" class="node-type">512 MB</text><text x="1029" y="298" class="node-name node-name--sm">Light lane</text></g>
-              <g class="node node--lane node--heavy"><rect x="1015" y="318" width="140" height="44" rx="4"/><text x="1029" y="338" class="node-type">1769 MB</text><text x="1029" y="354" class="node-name node-name--sm">Heavy lane</text></g>
+              <g class="node node--lane node--light"><rect x="1015" y="262" width="140" height="44" rx="4"/><text x="1029" y="282" class="node-type">256 MB</text><text x="1029" y="298" class="node-name node-name--sm">Light lane</text></g>
+              <g class="node node--lane node--heavy"><rect x="1015" y="318" width="140" height="44" rx="4"/><text x="1029" y="338" class="node-type">1024 MB</text><text x="1029" y="354" class="node-name node-name--sm">Heavy lane</text></g>
               <g class="node node--lane node--baseline"><rect x="1015" y="374" width="140" height="44" rx="4"/><text x="1029" y="394" class="node-type">3008 MB</text><text x="1029" y="410" class="node-name node-name--sm">Baseline</text></g>
 
               <g class="node node--alert"><rect x="450" y="370" width="170" height="64" rx="4"/><text x="466" y="394" class="node-type">SQS · 14 days</text><text x="466" y="417" class="node-name">Dead letters</text></g>
@@ -348,7 +368,7 @@
           <li>The website API signs a short-lived, PDF-only upload form of at most 25 MB for the KMS-encrypted upload bucket.</li>
           <li>The upload raises an S3 event. The validator checks the file really is a PDF and queues a job in SQS.</li>
           <li>The dispatcher starts one Express Step Functions run per job, named after the document so it can be traced.</li>
-          <li>The classifier scores pages and size, and a Choice state sends the file to the light (512 MB) or heavy (1769 MB) lane. Baseline runs skip the classifier and always use 3008 MB.</li>
+          <li>The classifier reads only the few kilobytes that hold the page count, scores pages and size, and a Choice state sends the file to the light (256 MB) or heavy (1024 MB) lane, sizes chosen by Power Tuning. Baseline runs skip the classifier and always use 3008 MB.</li>
           <li>Results go to DynamoDB, the text to the curated bucket, and SNS announces the outcome.</li>
           <li>A failed run is marked, moved to the dead letter queue and raises a CloudWatch alarm.</li>
           <li>The reconciler reads each function's billed duration from CloudWatch Logs and writes the actual cost back to DynamoDB.</li>

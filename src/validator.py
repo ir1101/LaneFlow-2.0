@@ -25,6 +25,8 @@ def handler(event, context):
         started = start_timer()
         bucket = record["s3"]["bucket"]["name"]
         key = unquote_plus(record["s3"]["object"]["key"])
+        if key.startswith("tuning/"):
+            continue  # inputs for memory tuning, not documents to process
         size = record["s3"]["object"].get("size", 0)
         web_upload = WEB_KEY.match(key)
         doc_id = web_upload.group(1) if web_upload else str(uuid.uuid4())

@@ -1,0 +1,240 @@
+{
+  "region": "ap-southeast-2",
+  "runsPerSetting": 10,
+  "discardTopBottom": 0.2,
+  "results": [
+    {
+      "function": "laneflow-extract-baseline",
+      "file": "doc-001p.pdf",
+      "pages": 1,
+      "best": 256,
+      "visualisation": "https://lambda-power-tuning.show/#gAAAAQACAATpBsAL;foGqQ3FdCUNtIK9CZuacQm3gnkLQKZpC;gREcNVvm+zS8oSA1GjSQNUdF/DUxHlE2",
+      "stats": [
+        {
+          "memoryMb": 128,
+          "avgDurationMs": 341.0116666666667,
+          "avgCostUsd": 5.814e-07
+        },
+        {
+          "memoryMb": 256,
+          "avgDurationMs": 137.365,
+          "avgCostUsd": 4.692e-07
+        },
+        {
+          "memoryMb": 512,
+          "avgDurationMs": 87.56333333333333,
+          "avgCostUsd": 5.984e-07
+        },
+        {
+          "memoryMb": 1024,
+          "avgDurationMs": 78.44999999999999,
+          "avgCostUsd": 1.0744e-06
+        },
+        {
+          "memoryMb": 1769,
+          "avgDurationMs": 79.43833333333335,
+          "avgCostUsd": 1.8795625e-06
+        },
+        {
+          "memoryMb": 3008,
+          "avgDurationMs": 77.08166666666666,
+          "avgCostUsd": 3.1160999999999997e-06
+        }
+      ]
+    },
+    {
+      "function": "laneflow-extract-baseline",
+      "file": "doc-008p.pdf",
+      "pages": 8,
+      "best": 128,
+      "visualisation": "https://lambda-power-tuning.show/#gAAAAQACAATpBsAL;14NVRFkS7UNgbHNDYIwpQ0seBUN3N+NC;4RXDNfrC2DWusd413CcbNtJGUzZPKJo2",
+      "stats": [
+        {
+          "memoryMb": 128,
+          "avgDurationMs": 854.0600000000001,
+          "avgCostUsd": 1.4535e-06
+        },
+        {
+          "memoryMb": 256,
+          "avgDurationMs": 474.1433333333334,
+          "avgCostUsd": 1.615e-06
+        },
+        {
+          "memoryMb": 512,
+          "avgDurationMs": 243.42333333333332,
+          "avgCostUsd": 1.6592e-06
+        },
+        {
+          "memoryMb": 1024,
+          "avgDurationMs": 169.54833333333332,
+          "avgCostUsd": 2.312e-06
+        },
+        {
+          "memoryMb": 1769,
+          "avgDurationMs": 133.1183333333333,
+          "avgCostUsd": 3.1482671875e-06
+        },
+        {
+          "memoryMb": 3008,
+          "avgDurationMs": 113.60833333333333,
+          "avgCostUsd": 4.59425e-06
+        }
+      ]
+    },
+    {
+      "function": "laneflow-extract-baseline",
+      "file": "doc-025p.pdf",
+      "pages": 25,
+      "best": 128,
+      "visualisation": "https://lambda-power-tuning.show/#gAAAAQACAATpBsAL;AJIRRQBEk0TaOCdE706rQ7g+dkNSmHJD;u+iENp2Bhja+35g2JvucNqy4wjbm3iI3",
+      "stats": [
+        {
+          "memoryMb": 128,
+          "avgDurationMs": 2329.125,
+          "avgCostUsd": 3.961e-06
+        },
+        {
+          "memoryMb": 256,
+          "avgDurationMs": 1178.1249999999998,
+          "avgCostUsd": 4.0086e-06
+        },
+        {
+          "memoryMb": 512,
+          "avgDurationMs": 668.8883333333333,
+          "avgCostUsd": 4.556e-06
+        },
+        {
+          "memoryMb": 1024,
+          "avgDurationMs": 342.61666666666673,
+          "avgCostUsd": 4.6784e-06
+        },
+        {
+          "memoryMb": 1769,
+          "avgDurationMs": 246.24499999999998,
+          "avgCostUsd": 5.80314921875e-06
+        },
+        {
+          "memoryMb": 3008,
+          "avgDurationMs": 242.595,
+          "avgCostUsd": 9.707849999999999e-06
+        }
+      ]
+    },
+    {
+      "function": "laneflow-extract-baseline",
+      "file": "doc-080p.pdf",
+      "pages": 80,
+      "best": 256,
+      "visualisation": "https://lambda-power-tuning.show/#AAEAAgAE6QbACw==;atVdRd4t3kS1iYJEibgZRLXB90M=;QYBKN9/XSjcTcG43es9yN5yOpjc=",
+      "stats": [
+        {
+          "memoryMb": 256,
+          "avgDurationMs": 3549.338333333333,
+          "avgCostUsd": 1.207e-05
+        },
+        {
+          "memoryMb": 512,
+          "avgDurationMs": 1777.4333333333336,
+          "avgCostUsd": 1.2090399999999999e-05
+        },
+        {
+          "memoryMb": 1024,
+          "avgDurationMs": 1044.3033333333333,
+          "avgCostUsd": 1.4211999999999999e-05
+        },
+        {
+          "memoryMb": 1769,
+          "avgDurationMs": 614.8833333333333,
+          "avgCostUsd": 1.4472631249999998e-05
+        },
+        {
+          "memoryMb": 3008,
+          "avgDurationMs": 495.5133333333333,
+          "avgCostUsd": 1.985515e-05
+        }
+      ]
+    },
+    {
+      "function": "laneflow-extract-baseline",
+      "file": "doc-300p.pdf",
+      "pages": 300,
+      "best": 256,
+      "visualisation": "https://lambda-power-tuning.show/#AAEAAgAE6QbACw==;/ZpQRnF500XU2mFFUggFRVl4BkU=;cWg+OC0IQThxNU44pOVROIdhtDg=",
+      "stats": [
+        {
+          "memoryMb": 256,
+          "avgDurationMs": 13350.746666666666,
+          "avgCostUsd": 4.53968e-05
+        },
+        {
+          "memoryMb": 512,
+          "avgDurationMs": 6767.179999999999,
+          "avgCostUsd": 4.6022399999999995e-05
+        },
+        {
+          "memoryMb": 1024,
+          "avgDurationMs": 3613.6766666666663,
+          "avgCostUsd": 4.9164e-05
+        },
+        {
+          "memoryMb": 1769,
+          "avgDurationMs": 2128.52,
+          "avgCostUsd": 5.004335156249999e-05
+        },
+        {
+          "memoryMb": 3008,
+          "avgDurationMs": 2151.521666666667,
+          "avgCostUsd": 8.601235e-05
+        }
+      ]
+    },
+    {
+      "function": "laneflow-classifier",
+      "file": "doc-001p.pdf",
+      "pages": 1,
+      "best": 256,
+      "visualisation": "https://lambda-power-tuning.show/#gAAAAQAC;wzWmQiY/E0IOdAtC;kVQZNDq6CjQObYM0",
+      "stats": [
+        {
+          "memoryMb": 128,
+          "avgDurationMs": 83.105,
+          "avgCostUsd": 1.4279999999999998e-07
+        },
+        {
+          "memoryMb": 256,
+          "avgDurationMs": 36.81166666666667,
+          "avgCostUsd": 1.292e-07
+        },
+        {
+          "memoryMb": 512,
+          "avgDurationMs": 34.86333333333334,
+          "avgCostUsd": 2.4479999999999997e-07
+        }
+      ]
+    },
+    {
+      "function": "laneflow-classifier",
+      "file": "doc-300p.pdf",
+      "pages": 300,
+      "best": 128,
+      "visualisation": "https://lambda-power-tuning.show/#gAAAAQAC;XA9aQ4moDkOkcKNC;huDHNA5tAzVGgRc1",
+      "stats": [
+        {
+          "memoryMb": 128,
+          "avgDurationMs": 218.06000000000003,
+          "avgCostUsd": 3.7229999999999997e-07
+        },
+        {
+          "memoryMb": 256,
+          "avgDurationMs": 142.65833333333333,
+          "avgCostUsd": 4.895999999999999e-07
+        },
+        {
+          "memoryMb": 512,
+          "avgDurationMs": 81.72,
+          "avgCostUsd": 5.643999999999999e-07
+        }
+      ]
+    }
+  ]
+}

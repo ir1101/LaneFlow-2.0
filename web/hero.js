@@ -19,6 +19,7 @@ export function createHero({ canvas, hero, titleEl, results, onStats, reducedMot
   const sizes = results.files.map((f) => ({
     pages: f.pages, lane: f.lane, adaptive: f.adaptive.totalUsd, baseline: f.baseline.totalUsd,
   }));
+  const lanes = { light: 256, heavy: 1024, ...(results.lanes || {}) };
   const docs = [];
   const pulses = [];
   const stats = { count: 0, adaptive: 0, baseline: 0 };
@@ -139,8 +140,8 @@ export function createHero({ canvas, hero, titleEl, results, onStats, reducedMot
     ctx.textBaseline = "alphabetic";
     text("S3 uploads", g.gutter, g.mid + 22);
     text("Classifier", g.gateX - 12, g.mid - 12, "right", C.ink);
-    text(g.narrow ? "Light · 512 MB" : "Light lane · 512 MB", W - g.gutter, g.lightY - 10, "right");
-    text(g.narrow ? "Heavy · 1769 MB" : "Heavy lane · 1769 MB", W - g.gutter, g.heavyY + 20, "right");
+    text(`${g.narrow ? "Light" : "Light lane"} · ${lanes.light} MB`, W - g.gutter, g.lightY - 10, "right");
+    text(`${g.narrow ? "Heavy" : "Heavy lane"} · ${lanes.heavy} MB`, W - g.gutter, g.heavyY + 20, "right");
     if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
   }
 

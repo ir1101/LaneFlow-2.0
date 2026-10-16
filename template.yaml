@@ -14,11 +14,6 @@ Parameters:
     Default: all
     AllowedValues: [all, failures]
     Description: Email every outcome, or only failures and rejected uploads.
-  LightLaneMaxScore:
-    Type: Number
-    Default: 30
-    Description: Complexity score at or below which a PDF takes the light lane.
-
 Conditions:
   HasEmail: !Not [!Equals [!Ref NotificationEmail, ""]]
   EmailFailuresOnly: !Equals [!Ref EmailNotifications, failures]
@@ -216,10 +211,15 @@ Resources:
     Properties:
       FunctionName: laneflow-classifier
       Handler: classifier.handler
-      MemorySize: 256
+      MemorySize: 128  # cheapest on average in Power Tuning (it reads only a few KB of each PDF)
       Environment:
         Variables:
-          LIGHT_MAX_SCORE: !Ref LightLaneMaxScore
+          # Lane sizes and this threshold come from AWS Lambda Power Tuning
+          # (results/power_tuning.json), using one rule: the cheapest memory that extracts
+          # a document in under 5 seconds. At 256 MB extraction takes about 100 ms plus
+          # 44 ms per page, so documents up to about 110 pages (a score of about 120 for
+          # text PDFs) meet the target in the light lane.
+          LIGHT_MAX_SCORE: "120"
       Policies:
         - Statement:
             - Effect: Allow
@@ -234,7 +234,7 @@ Resources:
     Properties:
       FunctionName: laneflow-extract-light
       Handler: extractor.handler
-      MemorySize: 512
+      MemorySize: 256  # within 11% of the cheapest setting for 1 to 80 pages
       Timeout: 120
       Environment:
         Variables:
@@ -257,7 +257,7 @@ Resources:
     Properties:
       FunctionName: laneflow-extract-heavy
       Handler: extractor.handler
-      MemorySize: 1769  # the point where Lambda allocates one full vCPU
+      MemorySize: 1024  # cheapest setting that extracts 300 pages in under 5 seconds (3.6 s)
       Timeout: 300
       Environment:
         Variables:

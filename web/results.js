@@ -26,10 +26,26 @@ export function renderResults(data, { reducedMotion }) {
     intro.textContent = `${data.rounds} rounds of ${data.files.length} document sizes in both modes (${data.documents} documents), using warm-run medians and AWS's own billed durations at Sydney prices.`;
   }
 
-  // Headline figures count up once when they scroll into view.
+  // Captions follow the data, so a negative result can never be labelled "cheaper".
+  const lightMax = data.files.filter((f) => f.lane === "light").reduce((m, f) => Math.max(m, f.pages), 0);
+  const captions = {
+    "light.processing": [`processing for PDFs of up to ${lightMax} pages, which take the ${data.lanes.light} MB light lane`],
+    "heavy.processing": [`processing for larger PDFs, which take the ${data.lanes.heavy} MB heavy lane`],
+    "all.processing": ["processing across an even mix of sizes"],
+    "all.total": ["end to end, once queueing, orchestration and storage are included"],
+  };
+  document.querySelectorAll("[data-figure-label]").forEach((node) => {
+    const value = get(data.savings, node.dataset.figureLabel);
+    const caption = captions[node.dataset.figureLabel];
+    if (value == null || !caption) return;
+    node.textContent = `${value >= 0 ? "cheaper" : "dearer"} ${caption[0]}`;
+  });
+
+  // Headline figures count up once when they scroll into view. A saving shows as a
+  // plain percentage; a loss would show its magnitude, with the caption saying "dearer".
   const figures = document.querySelectorAll("[data-count]");
   const countUp = (node) => {
-    const target = get(data.savings, node.dataset.count) * 100;
+    const target = Math.abs(get(data.savings, node.dataset.count) * 100);
     if (reducedMotion) {
       node.textContent = `${target.toFixed(1)}%`;
       return;
@@ -63,6 +79,7 @@ export function renderResults(data, { reducedMotion }) {
   }
 
   renderTable(data);
+  renderTuning(data);
   const container = document.querySelector("[data-chart]");
   const tooltip = document.querySelector("[data-chart-tooltip]");
   if (!container) return;
@@ -95,15 +112,102 @@ function renderTable(data) {
   }));
 }
 
+// Power Tuning grid: each document size against each memory setting, as cost relative to
+// the cheapest setting for that size. The cheapest cell and the lane's chosen setting are marked.
+function renderTuning(data) {
+  const table = document.querySelector("[data-tuning-table]");
+  const panel = document.querySelector("[data-tuning]");
+  if (!table || !panel) return;
+  const extractor = (data.tuning || []).filter((t) => t.function.startsWith("extract"));
+  if (!extractor.length) {
+    panel.hidden = true;
+    return;
+  }
+  const memories = [...new Set(extractor.flatMap((t) => t.settings.map((s) => s.memoryMb)))].sort((a, b) => a - b);
+  const lightMax = data.files.filter((f) => f.lane === "light").reduce((m, f) => Math.max(m, f.pages), 0);
+
+  const headRow = document.createElement("tr");
+  const corner = document.createElement("th");
+  corner.scope = "col";
+  corner.textContent = "Document";
+  headRow.append(corner, ...memories.map((mb) => {
+    const th = document.createElement("th");
+    th.scope = "col";
+    th.className = "num";
+    th.textContent = `${mb} MB`;
+    return th;
+  }));
+  table.tHead.replaceChildren(headRow);
+
+  table.tBodies[0].replaceChildren(...extractor.map((t) => {
+    const tr = document.createElement("tr");
+    const label = document.createElement("th");
+    label.scope = "row";
+    label.textContent = pagesLabel(t.pages);
+    tr.append(label);
+    const cheapest = Math.min(...t.settings.map((s) => s.usd));
+    const laneMb = t.pages <= lightMax ? data.lanes.light : data.lanes.heavy;
+    for (const mb of memories) {
+      const td = document.createElement("td");
+      td.className = "num";
+      td.dataset.label = `${mb} MB`;
+      const s = t.settings.find((x) => x.memoryMb === mb);
+      if (!s) {
+        td.textContent = "not run";
+        td.classList.add("is-empty");
+      } else {
+        const ratio = s.usd / cheapest;
+        const value = document.createElement("span");
+        value.className = "ratio";
+        value.textContent = `${ratio.toFixed(2)}×`;
+        const ms = document.createElement("span");
+        ms.className = "ms";
+        ms.textContent = s.ms >= 1000 ? `${(s.ms / 1000).toFixed(1)} s` : `${Math.round(s.ms)} ms`;
+        td.append(value, ms);
+        if (s.usd === cheapest) td.classList.add("is-cheapest");
+        if (mb === laneMb) td.classList.add("is-chosen");
+        const notes = [s.usd === cheapest && "cheapest", mb === laneMb && "lane setting"].filter(Boolean);
+        if (notes.length) {
+          const hidden = document.createElement("span");
+          hidden.className = "visually-hidden";
+          hidden.textContent = ` (${notes.join(", ")})`;
+          td.append(hidden);
+        }
+      }
+      tr.append(td);
+    }
+    return tr;
+  }));
+
+  const before = document.querySelector("[data-before-after]");
+  if (before && data.previous) {
+    const items = [
+      [`Original lanes, ${data.previous.lanes.light} MB and ${data.previous.lanes.heavy} MB`, data.previous.savings.all.processing],
+      [`Tuned lanes, ${data.lanes.light} MB and ${data.lanes.heavy} MB`, data.savings.all.processing],
+    ];
+    before.replaceChildren(...items.map(([label, value]) => {
+      const div = document.createElement("div");
+      const dt = document.createElement("dt");
+      dt.textContent = label;
+      const dd = document.createElement("dd");
+      dd.textContent = `${(value * 100).toFixed(1)}%`;
+      div.append(dt, dd);
+      return div;
+    }));
+  } else if (before) {
+    before.hidden = true;
+  }
+}
+
 function drawDumbbell(container, tooltip, data, width) {
   const narrow = width < 560;
   const m = { left: narrow ? 70 : 104, right: narrow ? 48 : 76, top: 8, bottom: 34 };
   const rowH = narrow ? 32 : 36;
   const groupH = 34;
   const groups = [
-    { lane: "light", name: "Light lane · 512 MB" },
-    { lane: "heavy", name: "Heavy lane · 1769 MB" },
-  ];
+    { lane: "light", name: `Light lane · ${data.lanes.light} MB` },
+    { lane: "heavy", name: `Heavy lane · ${data.lanes.heavy} MB` },
+  ].filter((g) => data.files.some((f) => f.lane === g.lane));
   const rows = [];
   let y = m.top;
   for (const group of groups) {
@@ -160,7 +264,7 @@ function drawDumbbell(container, tooltip, data, width) {
     g.append(el("circle", { class: "dot-adaptive", cx: x(a), cy, r: 6 }));
     g.append(el("text", { class: `delta${Math.abs(change) >= 0.1 ? " is-strong" : ""}`, x: width - 2, y: cy + 4.5, "text-anchor": "end" }, signed(change)));
 
-    const show = () => showTooltip(tooltip, container, f, change, { x: x(Math.max(a, b)), y: row.y });
+    const show = () => showTooltip(tooltip, container, f, change, { x: x(Math.max(a, b)), y: row.y }, data.lanes);
     g.addEventListener("pointerenter", show);
     g.addEventListener("focus", show);
     g.addEventListener("pointerleave", () => { tooltip.hidden = true; });
@@ -170,7 +274,7 @@ function drawDumbbell(container, tooltip, data, width) {
   container.replaceChildren(svg);
 }
 
-function showTooltip(tooltip, container, f, change, anchor) {
+function showTooltip(tooltip, container, f, change, anchor, lanes) {
   const head = document.createElement("p");
   head.className = "tt-head";
   head.textContent = `${pagesLabel(f.pages)} · ${f.lane} lane`;
@@ -186,8 +290,8 @@ function showTooltip(tooltip, container, f, change, anchor) {
   };
   const foot = document.createElement("p");
   foot.className = "tt-foot";
-  const laneMb = f.lane === "light" ? 512 : 1769;
-  foot.textContent = `${Math.abs(change * 100).toFixed(1)}% ${change < 0 ? "cheaper" : "dearer"}. Extraction took ${f.adaptive.extractMs} ms at ${laneMb} MB and ${f.baseline.extractMs} ms at 3008 MB.`;
+  const laneMb = lanes[f.lane];
+  foot.textContent = `${Math.abs(change * 100).toFixed(1)}% ${change < 0 ? "cheaper" : "dearer"}. Extraction took ${f.adaptive.extractMs} ms at ${laneMb} MB and ${f.baseline.extractMs} ms at ${lanes.baseline} MB.`;
   tooltip.replaceChildren(head, line(usd(f.adaptive.processingUsd), "adaptive", false),
     line(usd(f.baseline.processingUsd), "baseline", true), foot);
   tooltip.hidden = false;
