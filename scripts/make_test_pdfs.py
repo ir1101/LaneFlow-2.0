@@ -1,7 +1,8 @@
 """Generate text PDFs of known page counts for testing, with no extra libraries.
 
 Usage: python scripts/make_test_pdfs.py
-Writes to test-data/: doc-001p.pdf ... doc-300p.pdf, plus not-a-pdf.pdf for the rejection test.
+Writes to test-data/: doc-001p.pdf ... doc-300p.pdf, plus not-a-pdf.pdf (rejection test)
+and broken.pdf (failure-path test).
 """
 import random
 from pathlib import Path
@@ -65,6 +66,10 @@ def main():
         print(f"{path.name}: {path.stat().st_size} bytes")
     (OUT / "not-a-pdf.pdf").write_text("This is plain text pretending to be a PDF.")
     print("not-a-pdf.pdf: rejection test file")
+    # Starts with a genuine PDF signature, so it passes the validator and then fails to parse.
+    noise = random.Random(7)
+    (OUT / "broken.pdf").write_bytes(b"%PDF-1.4\n" + bytes(noise.randrange(256) for _ in range(4000)))
+    print("broken.pdf: failure-path test file")
 
 
 if __name__ == "__main__":

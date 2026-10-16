@@ -1,0 +1,191 @@
+{
+  "source": "results/final_per_document.csv",
+  "region": "ap-southeast-2",
+  "rounds": 5,
+  "documents": 91,
+  "files": [
+    {
+      "file": "doc-001p.pdf",
+      "pages": 1,
+      "lane": "light",
+      "adaptive": {
+        "processingUsd": 9.351675975e-06,
+        "totalUsd": 1.47651176375e-05,
+        "extractMs": 208.0,
+        "warmRuns": 4
+      },
+      "baseline": {
+        "processingUsd": 1.19808589875e-05,
+        "totalUsd": 1.6623402525e-05,
+        "extractMs": 131.0,
+        "warmRuns": 5
+      }
+    },
+    {
+      "file": "doc-003p.pdf",
+      "pages": 3,
+      "lane": "light",
+      "adaptive": {
+        "processingUsd": 8.38667115e-06,
+        "totalUsd": 1.3182569099999998e-05,
+        "extractMs": 109.0,
+        "warmRuns": 5
+      },
+      "baseline": {
+        "processingUsd": 1.04141844875e-05,
+        "totalUsd": 1.50708947625e-05,
+        "extractMs": 91.0,
+        "warmRuns": 5
+      }
+    },
+    {
+      "file": "doc-008p.pdf",
+      "pages": 8,
+      "lane": "light",
+      "adaptive": {
+        "processingUsd": 9.143341600000001e-06,
+        "totalUsd": 1.398342675e-05,
+        "extractMs": 227.0,
+        "warmRuns": 5
+      },
+      "baseline": {
+        "processingUsd": 1.26075287875e-05,
+        "totalUsd": 1.7386759987499998e-05,
+        "extractMs": 147.0,
+        "warmRuns": 5
+      }
+    },
+    {
+      "file": "doc-015p.pdf",
+      "pages": 15,
+      "lane": "light",
+      "adaptive": {
+        "processingUsd": 1.0576682099999999e-05,
+        "totalUsd": 1.5620142225e-05,
+        "extractMs": 395.0,
+        "warmRuns": 5
+      },
+      "baseline": {
+        "processingUsd": 1.40958695625e-05,
+        "totalUsd": 1.88184338125e-05,
+        "extractMs": 185.0,
+        "warmRuns": 5
+      }
+    },
+    {
+      "file": "doc-025p.pdf",
+      "pages": 25,
+      "lane": "light",
+      "adaptive": {
+        "processingUsd": 1.18566885e-05,
+        "totalUsd": 1.7216044475e-05,
+        "extractMs": 571.0,
+        "warmRuns": 5
+      },
+      "baseline": {
+        "processingUsd": 1.63675475875e-05,
+        "totalUsd": 2.1136778737499997e-05,
+        "extractMs": 243.0,
+        "warmRuns": 5
+      }
+    },
+    {
+      "file": "doc-040p.pdf",
+      "pages": 40,
+      "lane": "heavy",
+      "adaptive": {
+        "processingUsd": 1.8491057609179688e-05,
+        "totalUsd": 2.3769559534179686e-05,
+        "extractMs": 453.0,
+        "warmRuns": 5
+      },
+      "baseline": {
+        "processingUsd": 1.8012555812499998e-05,
+        "totalUsd": 2.2897641187499997e-05,
+        "extractMs": 285.0,
+        "warmRuns": 5
+      }
+    },
+    {
+      "file": "doc-080p.pdf",
+      "pages": 80,
+      "lane": "heavy",
+      "adaptive": {
+        "processingUsd": 2.3830068679101564e-05,
+        "totalUsd": 2.9578613579101563e-05,
+        "extractMs": 682.0,
+        "warmRuns": 5
+      },
+      "baseline": {
+        "processingUsd": 2.50234242e-05,
+        "totalUsd": 3.0256031625000002e-05,
+        "extractMs": 464.0,
+        "warmRuns": 5
+      }
+    },
+    {
+      "file": "doc-150p.pdf",
+      "pages": 150,
+      "lane": "heavy",
+      "adaptive": {
+        "processingUsd": 3.583952976777344e-05,
+        "totalUsd": 4.184033894941406e-05,
+        "extractMs": 1193.0,
+        "warmRuns": 5
+      },
+      "baseline": {
+        "processingUsd": 3.565722736875001e-05,
+        "totalUsd": 4.121949086875001e-05,
+        "extractMs": 735.5,
+        "warmRuns": 4
+      }
+    },
+    {
+      "file": "doc-300p.pdf",
+      "pages": 300,
+      "lane": "heavy",
+      "adaptive": {
+        "processingUsd": 5.906376047167968e-05,
+        "totalUsd": 6.657515949667969e-05,
+        "extractMs": 2181.0,
+        "warmRuns": 5
+      },
+      "baseline": {
+        "processingUsd": 6.10569377e-05,
+        "totalUsd": 6.7428087275e-05,
+        "extractMs": 1384.0,
+        "warmRuns": 5
+      }
+    }
+  ],
+  "savings": {
+    "all": {
+      "processing": 0.09100969905260747,
+      "total": 0.0570351237319533
+    },
+    "light": {
+      "processing": 0.2467071869292814,
+      "total": 0.16026019133040437
+    },
+    "heavy": {
+      "processing": 0.01807317303353917,
+      "total": 0.0002322565286295708
+    }
+  },
+  "orchestration": {
+    "adaptive": {
+      "expressUsd": 1.723104455e-05,
+      "standardUsd": 0.000140311690475,
+      "ratio": 8.14295906831719
+    },
+    "baseline": {
+      "expressUsd": 2.0927204512499998e-05,
+      "standardUsd": 9.456254826250001e-05,
+      "ratio": 4.518642143818922
+    }
+  },
+  "coldStarts": {
+    "adaptive": 2,
+    "baseline": 1
+  }
+}

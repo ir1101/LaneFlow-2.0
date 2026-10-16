@@ -40,6 +40,15 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: !Sub "laneflow-uploads-${AWS::AccountId}-${AWS::Region}"
+      # Browsers may only send upload forms here from the website (or local development).
+      CorsConfiguration:
+        CorsRules:
+          - AllowedMethods: [POST]
+            AllowedOrigins:
+              - !Sub "https://${WebDistribution.DomainName}"
+              - http://localhost:8080
+            AllowedHeaders: ["*"]
+            MaxAge: 600
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
@@ -81,10 +90,19 @@ Resources:
         - { AttributeName: pk, AttributeType: S }
         - { AttributeName: sk, AttributeType: S }
         - { AttributeName: requestId, AttributeType: S }
+        - { AttributeName: createdAt, AttributeType: N }
       KeySchema:
         - { AttributeName: pk, KeyType: HASH }
         - { AttributeName: sk, KeyType: RANGE }
       GlobalSecondaryIndexes:
+        # Lists the newest jobs for the website. Only JOB records carry createdAt, so
+        # this index holds jobs alone, newest first when queried in reverse.
+        - IndexName: byCreatedAt
+          KeySchema:
+            - { AttributeName: sk, KeyType: HASH }
+            - { AttributeName: createdAt, KeyType: RANGE }
+          Projection:
+            ProjectionType: ALL
         # Lets the reconciler find a cost record from a Lambda request ID. Only cost
         # records carry requestId, so the index stays small (a "sparse" index).
         - IndexName: byRequestId
@@ -315,7 +333,70 @@ Resources:
           Type: CloudWatchLogs
           Properties: { LogGroupName: !Ref BaselineExtractLogs, FilterPattern: '"REPORT RequestId"' }
 
+  # ---------- Website API ----------
+  WebApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      # The site calls the API through CloudFront on the same address, so CORS is only
+      # needed for local development.
+      CorsConfiguration:
+        AllowOrigins: ["http://localhost:8080"]
+        AllowMethods: [GET, POST]
+        AllowHeaders: [content-type]
+        MaxAge: 600
+      # Caps request rates so a public page cannot be used to run up costs.
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: laneflow-api
+      Handler: api.handler
+      MemorySize: 256
+      Timeout: 10
+      Environment:
+        Variables:
+          # Named rather than referenced, to avoid a circular dependency through the
+          # upload bucket's CORS rule, which refers to the CloudFront distribution.
+          UPLOAD_BUCKET: !Sub "laneflow-uploads-${AWS::AccountId}-${AWS::Region}"
+          CURATED_BUCKET: !Ref CuratedBucket
+      Policies:
+        - Statement:
+            # Upload forms are signed with this role, so it may only write uploads.
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub "arn:aws:s3:::laneflow-uploads-${AWS::AccountId}-${AWS::Region}/*"
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub "${CuratedBucket.Arn}/text/*"
+            - Effect: Allow
+              Action: [dynamodb:Query, dynamodb:GetItem, dynamodb:BatchGetItem]
+              Resource:
+                - !GetAtt DocumentsTable.Arn
+                - !Sub "${DocumentsTable.Arn}/index/byCreatedAt"
+      Events:
+        CreateUpload:
+          Type: HttpApi
+          Properties: { ApiId: !Ref WebApi, Path: /api/uploads, Method: POST }
+        ListDocuments:
+          Type: HttpApi
+          Properties: { ApiId: !Ref WebApi, Path: /api/documents, Method: GET }
+        GetDocument:
+          Type: HttpApi
+          Properties: { ApiId: !Ref WebApi, Path: "/api/documents/{docId}", Method: GET }
+        GetText:
+          Type: HttpApi
+          Properties: { ApiId: !Ref WebApi, Path: "/api/documents/{docId}/text", Method: GET }
+        Health:
+          Type: HttpApi
+          Properties: { ApiId: !Ref WebApi, Path: /api/health, Method: GET }
+
   # Log groups are declared so they are deleted with the stack and keep logs for 7 days only.
+  ApiLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: /aws/lambda/laneflow-api, RetentionInDays: 7 }
   ValidatorLogs:
     Type: AWS::Logs::LogGroup
     Properties: { LogGroupName: /aws/lambda/laneflow-validator, RetentionInDays: 7 }
@@ -402,6 +483,87 @@ Resources:
                 - logs:DescribeResourcePolicies
                 - logs:DescribeLogGroups
               Resource: "*"
+
+  # ---------- Website hosting ----------
+  # Private bucket: only CloudFront can read it. S3-managed encryption is used here
+  # because the site's files are public content, and CloudFront cannot read objects
+  # encrypted with the AWS managed KMS key.
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "laneflow-web-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  WebOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "laneflow-web-${AWS::Region}"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  WebDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: LaneFlow website and API
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        PriceClass: PriceClass_200  # includes edge locations in India
+        Origins:
+          - Id: web
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt WebOriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+          - Id: api
+            DomainName: !Sub "${WebApi}.execute-api.${AWS::Region}.amazonaws.com"
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+        DefaultCacheBehavior:
+          TargetOriginId: web
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6          # Managed-CachingOptimized
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03  # Managed-SecurityHeadersPolicy
+        CacheBehaviors:
+          # API calls are never cached and reach API Gateway on the same address as the site.
+          - PathPattern: /api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            Compress: true
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad          # Managed-CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # Managed-AllViewerExceptHostHeader
+
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub "${WebBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${WebDistribution}"
 
   # ---------- Monitoring ----------
   DeadLetterAlarm:
@@ -538,3 +700,11 @@ Outputs:
     Value: !Ref DeadLetterQueue
   DashboardUrl:
     Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards/dashboard/laneflow"
+  WebsiteUrl:
+    Value: !Sub "https://${WebDistribution.DomainName}"
+  WebBucketName:
+    Value: !Ref WebBucket
+  DistributionId:
+    Value: !Ref WebDistribution
+  ApiUrl:
+    Value: !Sub "https://${WebApi}.execute-api.${AWS::Region}.amazonaws.com"

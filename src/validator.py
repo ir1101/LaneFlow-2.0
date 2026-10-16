@@ -1,6 +1,7 @@
 """Triggered by S3 uploads. Checks the file is a real PDF, then queues a job."""
 import json
 import os
+import re
 import time
 import uuid
 from urllib.parse import unquote_plus
@@ -14,6 +15,9 @@ sqs = boto3.client("sqs")
 sns = boto3.client("sns")
 
 MAX_BYTES = int(os.environ.get("MAX_BYTES", 25 * 1024 * 1024))
+# Website uploads are stored as <mode>/<docId>/<file name>, so the browser already knows the ID.
+WEB_KEY = re.compile(r"^(?:adaptive|baseline)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+                     r"[0-9a-f]{4}-[0-9a-f]{12})/")
 
 
 def handler(event, context):
@@ -22,7 +26,8 @@ def handler(event, context):
         bucket = record["s3"]["bucket"]["name"]
         key = unquote_plus(record["s3"]["object"]["key"])
         size = record["s3"]["object"].get("size", 0)
-        doc_id = str(uuid.uuid4())
+        web_upload = WEB_KEY.match(key)
+        doc_id = web_upload.group(1) if web_upload else str(uuid.uuid4())
         # Files under baseline/ go through the single over-provisioned function,
         # everything else through adaptive routing.
         mode = "baseline" if key.startswith("baseline/") else "adaptive"
