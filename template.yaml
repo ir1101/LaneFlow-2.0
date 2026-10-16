@@ -1,0 +1,540 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  LaneFlow. Event-driven PDF processing pipeline with cost-aware adaptive routing
+  and per-document cost telemetry.
+
+Parameters:
+  NotificationEmail:
+    Type: String
+    Default: ""
+    Description: Email address for notifications. Leave blank for none.
+  EmailNotifications:
+    Type: String
+    Default: all
+    AllowedValues: [all, failures]
+    Description: Email every outcome, or only failures and rejected uploads.
+  LightLaneMaxScore:
+    Type: Number
+    Default: 30
+    Description: Complexity score at or below which a PDF takes the light lane.
+
+Conditions:
+  HasEmail: !Not [!Equals [!Ref NotificationEmail, ""]]
+  EmailFailuresOnly: !Equals [!Ref EmailNotifications, failures]
+
+Globals:
+  Function:
+    Runtime: python3.13
+    Architectures: [arm64]
+    CodeUri: src/
+    Timeout: 60
+    MemorySize: 128
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref DocumentsTable
+
+Resources:
+  # ---------- Storage ----------
+  UploadBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "laneflow-uploads-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms  # no key ID given, so S3 uses the AWS managed key aws/s3
+            BucketKeyEnabled: true   # caches a data key so KMS is called far less often
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  CuratedBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "laneflow-curated-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+            BucketKeyEnabled: true
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  DocumentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "laneflow-documents-${AWS::Region}"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: sk, AttributeType: S }
+        - { AttributeName: requestId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+        - { AttributeName: sk, KeyType: RANGE }
+      GlobalSecondaryIndexes:
+        # Lets the reconciler find a cost record from a Lambda request ID. Only cost
+        # records carry requestId, so the index stays small (a "sparse" index).
+        - IndexName: byRequestId
+          KeySchema:
+            - { AttributeName: requestId, KeyType: HASH }
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes: [component, storageOpsUsd]
+
+  # ---------- Messaging ----------
+  JobQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: laneflow-jobs
+      VisibilityTimeout: 60  # six times the dispatcher timeout, as AWS recommends
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeadLetterQueue.Arn
+        maxReceiveCount: 3
+
+  # Receives jobs that could not be started (via the redrive policy) and jobs that
+  # failed during processing (sent by the state machine).
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: laneflow-jobs-dlq
+      MessageRetentionPeriod: 1209600  # 14 days, the maximum
+      SqsManagedSseEnabled: true
+
+  NotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: laneflow-notifications
+
+  EmailSubscription:
+    Type: AWS::SNS::Subscription
+    Condition: HasEmail
+    Properties:
+      TopicArn: !Ref NotificationTopic
+      Protocol: email
+      Endpoint: !Ref NotificationEmail
+      # Every message carries an "outcome" attribute, so the subscription can filter.
+      FilterPolicy: !If
+        - EmailFailuresOnly
+        - { outcome: [failure, rejected] }
+        - !Ref AWS::NoValue
+
+  # ---------- Functions ----------
+  # Each function's policy names only the actions it calls, on only the resources it uses.
+  ValidatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: laneflow-validator
+      Handler: validator.handler
+      Environment:
+        Variables:
+          QUEUE_URL: !Ref JobQueue
+          TOPIC_ARN: !Ref NotificationTopic
+      Policies:
+        - Statement:
+            # The bucket ARN is built with !Sub rather than !GetAtt to avoid a circular
+            # dependency: the bucket's event notification already depends on this function.
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub "arn:aws:s3:::laneflow-uploads-${AWS::AccountId}-${AWS::Region}/*"
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt DocumentsTable.Arn
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt JobQueue.Arn
+            - Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref NotificationTopic
+      Events:
+        Upload:
+          Type: S3
+          Properties:
+            Bucket: !Ref UploadBucket
+            Events: s3:ObjectCreated:*
+
+  DispatcherFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: laneflow-dispatcher
+      Handler: dispatcher.handler
+      Timeout: 10
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref PipelineStateMachine
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: states:StartExecution
+              Resource: !Ref PipelineStateMachine
+            - Effect: Allow
+              Action: [dynamodb:PutItem, dynamodb:UpdateItem]
+              Resource: !GetAtt DocumentsTable.Arn
+      Events:
+        Jobs:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt JobQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes: [ReportBatchItemFailures]
+            ScalingConfig:
+              MaximumConcurrency: 2
+
+  ClassifierFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: laneflow-classifier
+      Handler: classifier.handler
+      MemorySize: 256
+      Environment:
+        Variables:
+          LIGHT_MAX_SCORE: !Ref LightLaneMaxScore
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub "${UploadBucket.Arn}/*"
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt DocumentsTable.Arn
+
+  LightExtractFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: laneflow-extract-light
+      Handler: extractor.handler
+      MemorySize: 512
+      Timeout: 120
+      Environment:
+        Variables:
+          LANE: light
+          CURATED_BUCKET: !Ref CuratedBucket
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub "${UploadBucket.Arn}/*"
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub "${CuratedBucket.Arn}/text/*"
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt DocumentsTable.Arn
+
+  HeavyExtractFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: laneflow-extract-heavy
+      Handler: extractor.handler
+      MemorySize: 1769  # the point where Lambda allocates one full vCPU
+      Timeout: 300
+      Environment:
+        Variables:
+          LANE: heavy
+          CURATED_BUCKET: !Ref CuratedBucket
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub "${UploadBucket.Arn}/*"
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub "${CuratedBucket.Arn}/text/*"
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt DocumentsTable.Arn
+
+  BaselineExtractFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: laneflow-extract-baseline
+      Handler: extractor.handler
+      MemorySize: 3008  # deliberately over-provisioned: the naive "one size fits all" design
+      Timeout: 300
+      Environment:
+        Variables:
+          LANE: baseline
+          CURATED_BUCKET: !Ref CuratedBucket
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub "${UploadBucket.Arn}/*"
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub "${CuratedBucket.Arn}/text/*"
+            - Effect: Allow
+              Action: dynamodb:PutItem
+              Resource: !GetAtt DocumentsTable.Arn
+
+  # Reads every pipeline function's REPORT log lines and records the actual billed cost.
+  CostReconcilerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: laneflow-cost-reconciler
+      Handler: reconciler.handler
+      Timeout: 30
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: dynamodb:Query
+              Resource: !Sub "${DocumentsTable.Arn}/index/byRequestId"
+            - Effect: Allow
+              Action: dynamodb:UpdateItem
+              Resource: !GetAtt DocumentsTable.Arn
+      Events:
+        ValidatorReports:
+          Type: CloudWatchLogs
+          Properties: { LogGroupName: !Ref ValidatorLogs, FilterPattern: '"REPORT RequestId"' }
+        DispatcherReports:
+          Type: CloudWatchLogs
+          Properties: { LogGroupName: !Ref DispatcherLogs, FilterPattern: '"REPORT RequestId"' }
+        ClassifierReports:
+          Type: CloudWatchLogs
+          Properties: { LogGroupName: !Ref ClassifierLogs, FilterPattern: '"REPORT RequestId"' }
+        LightExtractReports:
+          Type: CloudWatchLogs
+          Properties: { LogGroupName: !Ref LightExtractLogs, FilterPattern: '"REPORT RequestId"' }
+        HeavyExtractReports:
+          Type: CloudWatchLogs
+          Properties: { LogGroupName: !Ref HeavyExtractLogs, FilterPattern: '"REPORT RequestId"' }
+        BaselineExtractReports:
+          Type: CloudWatchLogs
+          Properties: { LogGroupName: !Ref BaselineExtractLogs, FilterPattern: '"REPORT RequestId"' }
+
+  # Log groups are declared so they are deleted with the stack and keep logs for 7 days only.
+  ValidatorLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: /aws/lambda/laneflow-validator, RetentionInDays: 7 }
+  DispatcherLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: /aws/lambda/laneflow-dispatcher, RetentionInDays: 7 }
+  ClassifierLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: /aws/lambda/laneflow-classifier, RetentionInDays: 7 }
+  LightExtractLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: /aws/lambda/laneflow-extract-light, RetentionInDays: 7 }
+  HeavyExtractLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: /aws/lambda/laneflow-extract-heavy, RetentionInDays: 7 }
+  BaselineExtractLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: /aws/lambda/laneflow-extract-baseline, RetentionInDays: 7 }
+  CostReconcilerLogs:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: /aws/lambda/laneflow-cost-reconciler, RetentionInDays: 7 }
+
+  # ---------- Orchestration ----------
+  # Express rather than Standard: Standard bills USD 0.000025 per state transition,
+  # which measured at about five times the Lambda saving that routing achieves.
+  # Express bills per execution plus duration, so the extra Classify step is almost free.
+  PipelineLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/vendedlogs/states/laneflow-pipeline-express
+      RetentionInDays: 7
+
+  PipelineStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Name: laneflow-pipeline-express
+      Type: EXPRESS
+      # Express executions only appear in the console when logging is on. Level ALL
+      # also records each run's start and end times, which the cost analysis uses.
+      # Execution data (the documents' JSON) is left out to keep log volume down.
+      Logging:
+        Level: ALL
+        IncludeExecutionData: false
+        Destinations:
+          - CloudWatchLogsLogGroup:
+              LogGroupArn: !GetAtt PipelineLogs.Arn
+      DefinitionUri: statemachine/pipeline.asl.json
+      DefinitionSubstitutions:
+        ClassifierArn: !GetAtt ClassifierFunction.Arn
+        LightExtractArn: !GetAtt LightExtractFunction.Arn
+        HeavyExtractArn: !GetAtt HeavyExtractFunction.Arn
+        BaselineExtractArn: !GetAtt BaselineExtractFunction.Arn
+        TopicArn: !Ref NotificationTopic
+        TableName: !Ref DocumentsTable
+        DeadLetterQueueUrl: !Ref DeadLetterQueue
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource:
+                - !GetAtt ClassifierFunction.Arn
+                - !GetAtt LightExtractFunction.Arn
+                - !GetAtt HeavyExtractFunction.Arn
+                - !GetAtt BaselineExtractFunction.Arn
+            - Effect: Allow
+              Action: dynamodb:UpdateItem
+              Resource: !GetAtt DocumentsTable.Arn
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt DeadLetterQueue.Arn
+            - Effect: Allow
+              Action: sns:Publish
+              Resource: !Ref NotificationTopic
+            # Log delivery for Step Functions is set up through these account-level
+            # actions, which AWS only supports on Resource "*".
+            - Effect: Allow
+              Action:
+                - logs:CreateLogDelivery
+                - logs:GetLogDelivery
+                - logs:UpdateLogDelivery
+                - logs:DeleteLogDelivery
+                - logs:ListLogDeliveries
+                - logs:PutResourcePolicy
+                - logs:DescribeResourcePolicies
+                - logs:DescribeLogGroups
+              Resource: "*"
+
+  # ---------- Monitoring ----------
+  DeadLetterAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: laneflow-dlq-not-empty
+      AlarmDescription: A job failed and is waiting in the dead letter queue.
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - { Name: QueueName, Value: !GetAtt DeadLetterQueue.QueueName }
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref NotificationTopic]
+
+  FailedExecutionsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: laneflow-executions-failed
+      AlarmDescription: At least one pipeline execution failed.
+      Namespace: AWS/States
+      MetricName: ExecutionsFailed
+      Dimensions:
+        - { Name: StateMachineArn, Value: !Ref PipelineStateMachine }
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref NotificationTopic]
+
+  Dashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: laneflow
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric", "x": 0, "y": 0, "width": 8, "height": 6,
+              "properties": {
+                "title": "Pipeline executions", "region": "${AWS::Region}", "stat": "Sum", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["AWS/States", "ExecutionsStarted", "StateMachineArn", "${PipelineStateMachine}"],
+                  [".", "ExecutionsSucceeded", ".", "."],
+                  [".", "ExecutionsFailed", ".", "."]
+                ]
+              }
+            },
+            {
+              "type": "metric", "x": 8, "y": 0, "width": 8, "height": 6,
+              "properties": {
+                "title": "Documents per lane", "region": "${AWS::Region}", "stat": "Sum", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["AWS/Lambda", "Invocations", "FunctionName", "laneflow-extract-light", {"label": "light lane (512 MB)"}],
+                  ["...", "laneflow-extract-heavy", {"label": "heavy lane (1769 MB)"}],
+                  ["...", "laneflow-extract-baseline", {"label": "baseline (3008 MB)"}]
+                ]
+              }
+            },
+            {
+              "type": "alarm", "x": 16, "y": 0, "width": 8, "height": 6,
+              "properties": {
+                "title": "Alarms",
+                "alarms": ["${DeadLetterAlarm.Arn}", "${FailedExecutionsAlarm.Arn}"]
+              }
+            },
+            {
+              "type": "metric", "x": 0, "y": 6, "width": 12, "height": 6,
+              "properties": {
+                "title": "Average billed cost per invocation (USD, reconciled)", "region": "${AWS::Region}", "stat": "Average", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["LaneFlow", "InvocationCostUsd", "Component", "extract-light"],
+                  ["...", "extract-heavy"],
+                  ["...", "extract-baseline"],
+                  ["...", "classifier"]
+                ]
+              }
+            },
+            {
+              "type": "metric", "x": 12, "y": 6, "width": 12, "height": 6,
+              "properties": {
+                "title": "Extractor duration (ms, average)", "region": "${AWS::Region}", "stat": "Average", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["AWS/Lambda", "Duration", "FunctionName", "laneflow-extract-light"],
+                  ["...", "laneflow-extract-heavy"],
+                  ["...", "laneflow-extract-baseline"]
+                ]
+              }
+            },
+            {
+              "type": "metric", "x": 0, "y": 12, "width": 12, "height": 6,
+              "properties": {
+                "title": "Queue depth", "region": "${AWS::Region}", "stat": "Maximum", "period": 60, "view": "timeSeries",
+                "metrics": [
+                  ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", "laneflow-jobs", {"label": "job queue"}],
+                  ["...", "laneflow-jobs-dlq", {"label": "dead letter queue"}]
+                ]
+              }
+            },
+            {
+              "type": "metric", "x": 12, "y": 12, "width": 12, "height": 6,
+              "properties": {
+                "title": "Lambda errors", "region": "${AWS::Region}", "stat": "Sum", "period": 300, "view": "timeSeries",
+                "metrics": [
+                  ["AWS/Lambda", "Errors", "FunctionName", "laneflow-validator"],
+                  ["...", "laneflow-dispatcher"],
+                  ["...", "laneflow-classifier"],
+                  ["...", "laneflow-extract-light"],
+                  ["...", "laneflow-extract-heavy"],
+                  ["...", "laneflow-extract-baseline"],
+                  ["...", "laneflow-cost-reconciler"]
+                ]
+              }
+            }
+          ]
+        }
+
+Outputs:
+  UploadBucketName:
+    Value: !Ref UploadBucket
+  CuratedBucketName:
+    Value: !Ref CuratedBucket
+  DocumentsTableName:
+    Value: !Ref DocumentsTable
+  StateMachineArn:
+    Value: !Ref PipelineStateMachine
+  DeadLetterQueueUrl:
+    Value: !Ref DeadLetterQueue
+  DashboardUrl:
+    Value: !Sub "https://${AWS::Region}.console.aws.amazon.com/cloudwatch/home?region=${AWS::Region}#dashboards/dashboard/laneflow"
