@@ -17,7 +17,7 @@ from tracing import annotate, tracer
 from common import record_cost, start_timer
 
 s3 = boto3.client("s3")
-LIGHT_MAX_SCORE = float(os.environ.get("LIGHT_MAX_SCORE", 30))
+LIGHT_MAX_SCORE = float(os.environ.get("LIGHT_MAX_SCORE", 120))  # set in template.yaml
 
 
 class S3RangeReader(io.RawIOBase):

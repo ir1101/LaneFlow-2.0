@@ -1,0 +1,41 @@
+# Runs on every push and pull request: unit tests, template lint, website script check.
+# It holds no AWS credentials, so it can check the code but never change the deployment.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install test tools
+        run: pip install -r requirements-dev.txt
+
+      - name: Unit tests
+        run: pytest -q
+
+      - name: Lint the CloudFormation template
+        run: cfn-lint template.yaml --non-zero-exit-code error
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check the website scripts parse
+        run: |
+          for f in web/*.js; do
+            node --experimental-default-type=module --check "$f"
+          done

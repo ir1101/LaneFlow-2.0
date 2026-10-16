@@ -370,7 +370,7 @@
 
         <ol class="steps" data-reveal>
           <li>CloudFront serves this site from a private S3 bucket and forwards <code>/api</code> calls to API Gateway, so the site and its API share one address.</li>
-          <li>The website API signs a short-lived, PDF-only upload form of at most 25 MB for the KMS-encrypted upload bucket.</li>
+          <li>The website API signs a short-lived, PDF-only upload form of at most 25 MB. The upload bucket is encrypted with LaneFlow's own KMS key, rotated yearly, accepts only HTTPS, and deletes uploads after 7 days.</li>
           <li>The upload raises an S3 event. The validator checks the file really is a PDF and queues a job in SQS.</li>
           <li>The dispatcher starts one Express Step Functions run per job, named after the document so it can be traced.</li>
           <li>The classifier reads only the few kilobytes that hold the page count, scores pages and size, and a Choice state sends the file to the light (256 MB) or heavy (1024 MB) lane, sizes chosen by Power Tuning. Baseline runs skip the classifier and always use 3008 MB.</li>

@@ -1,0 +1,6 @@
+# Local testing and CI only; the Lambda functions use src/requirements.txt.
+pytest==8.3.5
+pypdf==5.4.0
+boto3
+aws-lambda-powertools[tracer]>=3,<4
+cfn-lint>=1,<2

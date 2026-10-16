@@ -40,6 +40,33 @@ Globals:
         POWERTOOLS_TRACER_CAPTURE_RESPONSE: "false"  # keep document details out of traces
 
 Resources:
+  # ---------- Encryption ----------
+  # A key LaneFlow owns, used by both document buckets. Unlike the AWS managed aws/s3 key,
+  # each role's policy names exactly which functions may use it and for what, it rotates
+  # every year, and every use is logged in CloudTrail. Cost: about USD 1 a month.
+  DocumentsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: LaneFlow document buckets (uploads and extracted text)
+      EnableKeyRotation: true
+      PendingWindowInDays: 7  # the shortest wait AWS allows before a deleted key is destroyed
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          # The account administers the key and grants its use through IAM policies (below,
+          # per function). Without this statement nobody could manage the key again.
+          - Sid: AccountAdministration
+            Effect: Allow
+            Principal: { AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root" }
+            Action: "kms:*"
+            Resource: "*"
+
+  DocumentsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: alias/laneflow-documents
+      TargetKeyId: !Ref DocumentsKey
+
   # ---------- Storage ----------
   UploadBucket:
     Type: AWS::S3::Bucket
@@ -57,7 +84,8 @@ Resources:
       BucketEncryption:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
-              SSEAlgorithm: aws:kms  # no key ID given, so S3 uses the AWS managed key aws/s3
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !GetAtt DocumentsKey.Arn
             BucketKeyEnabled: true   # caches a data key so KMS is called far less often
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -85,6 +113,7 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !GetAtt DocumentsKey.Arn
             BucketKeyEnabled: true
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
@@ -224,6 +253,9 @@ Resources:
               Action: s3:GetObject
               Resource: !Sub "arn:aws:s3:::laneflow-uploads-${AWS::AccountId}-${AWS::Region}/*"
             - Effect: Allow
+              Action: kms:Decrypt  # reading an upload decrypts it with the documents key
+              Resource: !GetAtt DocumentsKey.Arn
+            - Effect: Allow
               Action: dynamodb:PutItem
               Resource: !GetAtt DocumentsTable.Arn
             - Effect: Allow
@@ -286,6 +318,9 @@ Resources:
               Action: s3:GetObject
               Resource: !Sub "${UploadBucket.Arn}/*"
             - Effect: Allow
+              Action: kms:Decrypt
+              Resource: !GetAtt DocumentsKey.Arn
+            - Effect: Allow
               Action: dynamodb:PutItem
               Resource: !GetAtt DocumentsTable.Arn
 
@@ -308,6 +343,9 @@ Resources:
             - Effect: Allow
               Action: s3:PutObject
               Resource: !Sub "${CuratedBucket.Arn}/text/*"
+            - Effect: Allow
+              Action: [kms:Decrypt, kms:GenerateDataKey]  # read the upload, encrypt the text
+              Resource: !GetAtt DocumentsKey.Arn
             - Effect: Allow
               Action: dynamodb:PutItem
               Resource: !GetAtt DocumentsTable.Arn
@@ -332,6 +370,9 @@ Resources:
               Action: s3:PutObject
               Resource: !Sub "${CuratedBucket.Arn}/text/*"
             - Effect: Allow
+              Action: [kms:Decrypt, kms:GenerateDataKey]  # read the upload, encrypt the text
+              Resource: !GetAtt DocumentsKey.Arn
+            - Effect: Allow
               Action: dynamodb:PutItem
               Resource: !GetAtt DocumentsTable.Arn
 
@@ -354,6 +395,9 @@ Resources:
             - Effect: Allow
               Action: s3:PutObject
               Resource: !Sub "${CuratedBucket.Arn}/text/*"
+            - Effect: Allow
+              Action: [kms:Decrypt, kms:GenerateDataKey]  # read the upload, encrypt the text
+              Resource: !GetAtt DocumentsKey.Arn
             - Effect: Allow
               Action: dynamodb:PutItem
               Resource: !GetAtt DocumentsTable.Arn
@@ -431,6 +475,10 @@ Resources:
             - Effect: Allow
               Action: s3:GetObject
               Resource: !Sub "${CuratedBucket.Arn}/text/*"
+            # Signed upload forms encrypt with the documents key; signed text links decrypt.
+            - Effect: Allow
+              Action: [kms:Decrypt, kms:GenerateDataKey]
+              Resource: !GetAtt DocumentsKey.Arn
             - Effect: Allow
               Action: [dynamodb:Query, dynamodb:GetItem, dynamodb:BatchGetItem]
               Resource:
