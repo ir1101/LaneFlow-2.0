@@ -15,6 +15,17 @@
   <script type="module" src="app.js"></script>
 </head>
 <body>
+  <!-- Opening curtain: counts to 100 while fonts and data load, then lifts (once a visit) -->
+  <div class="curtain" data-curtain aria-hidden="true">
+    <div class="curtain-shade"></div>
+    <div class="curtain-panel">
+      <p class="curtain-brand">LaneFlow</p>
+      <p class="curtain-note">Weighing documents</p>
+      <p class="curtain-count" data-curtain-count>000</p>
+    </div>
+  </div>
+  <div class="cursor" data-cursor aria-hidden="true"><span></span></div>
+
   <a class="skip-link" href="#send">Skip to the live demo</a>
 
   <header class="site-header" data-header>
@@ -27,16 +38,29 @@
         <li><a href="#architecture"><span aria-hidden="true">04</span> Architecture</a></li>
       </ol>
     </nav>
-    <p class="status" data-status data-state="checking">
-      <span class="status-dot" aria-hidden="true"></span>
-      <span data-status-text>Checking pipeline</span>
-    </p>
+    <div class="header-end">
+      <p class="status" data-status data-state="checking">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span data-status-text>Checking pipeline</span>
+      </p>
+      <button class="motion-switch" type="button" data-motion-toggle aria-pressed="false" aria-label="Pause motion" title="Pause motion">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><rect class="icon-pause" x="3.5" y="3" width="3" height="10" rx="1"/><rect class="icon-pause" x="9.5" y="3" width="3" height="10" rx="1"/><path class="icon-play" d="M4.5 3.2v9.6a.6.6 0 0 0 .9.5l7.6-4.8a.6.6 0 0 0 0-1L5.4 2.7a.6.6 0 0 0-.9.5z"/></svg>
+      </button>
+    </div>
   </header>
 
   <main id="top">
     <!-- Hero: the name, and a live simulation of documents being routed -->
     <section class="hero" aria-labelledby="hero-title" data-hero data-theme="light">
-      <h1 class="hero-title" id="hero-title" aria-label="LaneFlow">
+      <div class="hero-halftone" aria-hidden="true"></div>
+      <svg class="hero-stamp" viewBox="0 0 160 160" aria-hidden="true">
+        <defs><path id="stamp-ring" d="M80 80m-62 0a62 62 0 1 1 124 0a62 62 0 1 1 -124 0"/></defs>
+        <g class="stamp-spin">
+          <text><textPath href="#stamp-ring" startOffset="0">Measured, not guessed · Cost-aware routing ·</textPath></text>
+        </g>
+        <path class="stamp-diamond" d="M80 58 L102 80 L80 102 L58 80 Z"/>
+      </svg>
+      <h1 class="hero-title" id="hero-title" aria-label="LaneFlow" data-cursor-lens>
         <span class="hero-word" data-split>Lane</span>
         <span class="hero-word" data-split>Flow</span>
       </h1>
@@ -150,6 +174,13 @@
       </div>
     </section>
 
+    <!-- Kinetic band: the pipeline's verbs, drifting; scrolling speeds them up -->
+    <div class="band" data-band="1" aria-hidden="true">
+      <div class="band-track">
+        <span>Upload</span><i></i><span class="is-filled">Validate</span><i></i><span>Queue</span><i></i><span class="is-filled">Classify</span><i></i><span>Route</span><i></i><span class="is-filled">Extract</span><i></i><span>Reconcile</span><i></i>
+      </div>
+    </div>
+
     <!-- 02: Live feed of recent documents -->
     <section class="section section--live" id="live" aria-labelledby="live-title" data-theme="light" data-live>
       <div class="section-inner">
@@ -202,7 +233,17 @@
           <h2 class="section-title" id="results-title">Routing pays where work waits</h2>
           <p class="section-intro" data-results-intro>Five rounds of nine document sizes in both modes, using warm-run medians and AWS's own billed durations at Sydney prices.</p>
         </div>
+      </div>
 
+      <!-- Generative long exposure: one stream of documents splitting into the two lanes -->
+      <div class="flow-band" aria-hidden="true">
+        <canvas data-flow></canvas>
+        <p class="flow-caption"><span>Generative study</span> one stream, two lanes, a thousand documents</p>
+        <p class="flow-label flow-label--light">Light lane</p>
+        <p class="flow-label flow-label--heavy">Heavy lane</p>
+      </div>
+
+      <div class="section-inner">
         <div class="figures" data-figures>
           <div class="figure figure--lead" data-reveal style="--d: 1"><p class="figure-value" data-count="light.processing">0%</p><p class="figure-label" data-figure-label="light.processing">cheaper processing for smaller PDFs, which take the light lane</p></div>
           <div class="figure" data-reveal style="--d: 2"><p class="figure-value" data-count="heavy.processing">0%</p><p class="figure-label" data-figure-label="heavy.processing">cheaper processing for large PDFs, which take the heavy lane</p></div>
@@ -276,6 +317,13 @@
         <p class="method" data-method>Method: 5 rounds × 9 sizes × 2 modes. Runs that paid a cold start are reported separately, and cost-record writes and detailed logs are treated as measurement overhead.</p>
       </div>
     </section>
+
+    <!-- Kinetic band on dark: the finding, drifting the other way -->
+    <div class="band band--dark" data-band="-1" data-theme="dark" aria-hidden="true">
+      <div class="band-track">
+        <span>Small documents wait</span><i></i><span class="is-filled">Large documents compute</span><i></i>
+      </div>
+    </div>
 
     <!-- 04: Architecture -->
     <section class="section" id="architecture" aria-labelledby="arch-title" data-theme="light">
@@ -385,7 +433,11 @@
 
   <footer class="site-footer" id="teardown" data-theme="light">
     <div class="section-inner">
-      <p class="footer-title" data-reveal>Tear it down.</p>
+      <p class="footer-title torn" data-reveal data-torn data-cursor-lens>
+        <span class="visually-hidden">Tear it down.</span>
+        <span class="torn-top" aria-hidden="true">Tear it down.</span>
+        <span class="torn-bottom" aria-hidden="true">Tear it down.</span>
+      </p>
       <p class="footer-copy" data-reveal style="--d: 1">One command removes every resource in the stack, from the CloudFront distribution to the last log group, and another rebuilds the lot in about ten minutes.</p>
       <p class="footer-command" data-reveal style="--d: 2"><code>.\scripts\teardown.ps1</code></p>
       <div class="footer-meta">

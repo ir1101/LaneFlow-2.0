@@ -2,6 +2,10 @@
 // live feed, and runs the page's motion (hero simulation, reveals, diagram packet).
 import { createHero } from "./hero.js";
 import { renderResults } from "./results.js";
+import { createFlow } from "./flow.js";
+import {
+  motion, playCurtain, initCursor, initMagnetic, initHeadings, initBands, initParallax, initTorn,
+} from "./motion.js";
 
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -169,17 +173,41 @@ function initHero() {
       out.saved.textContent = s.baseline ? `${((1 - s.adaptive / s.baseline) * 100).toFixed(1)}%` : "0.0%";
     },
   });
-  const toggle = heroEl.querySelector("[data-motion-toggle]");
+  hero.setPaused(motion.paused);
+  motion.onChange((paused) => hero.setPaused(paused));
+}
+
+// One pause for everything that moves on its own: the header switch and the hero button
+// both flip it. Each says what it will do next.
+function initMotionToggles() {
+  const toggles = [...document.querySelectorAll("[data-motion-toggle]")];
   if (reducedMotion) {
-    toggle.hidden = true;
+    toggles.forEach((toggle) => { toggle.hidden = true; });
     return;
   }
-  toggle.addEventListener("click", () => {
-    const paused = toggle.getAttribute("aria-pressed") !== "true";
-    toggle.setAttribute("aria-pressed", String(paused));
-    toggle.textContent = paused ? "Play motion" : "Pause motion";
-    hero.setPaused(paused);
+  const render = (paused) => toggles.forEach((toggle) => {
+    const label = paused ? "Play motion" : "Pause motion";
+    toggle.dataset.paused = String(paused);
+    if (toggle.classList.contains("motion-switch")) {
+      toggle.setAttribute("aria-label", label);
+      toggle.title = label;
+    } else {
+      toggle.textContent = label;
+    }
   });
+  toggles.forEach((toggle) => {
+    toggle.removeAttribute("aria-pressed");
+    toggle.addEventListener("click", () => motion.set(!motion.paused));
+  });
+  motion.onChange(render);
+  render(false);
+}
+
+function initFlow() {
+  const canvas = document.querySelector("[data-flow]");
+  if (!canvas) return;
+  const flow = createFlow(canvas, { reducedMotion, isPaused: () => motion.paused });
+  motion.onChange(() => flow.sync());
 }
 
 // Architecture diagram: a packet travels the route a document takes.
@@ -690,8 +718,16 @@ function initFeed() {
 // ---------- Start ----------
 async function start() {
   splitTitle();
+  initHeadings();
   initHeader();
   initReveal();
+  initMotionToggles();
+  initCursor();
+  initMagnetic({ reducedMotion });
+  initBands({ reducedMotion });
+  initParallax({ reducedMotion });
+  initTorn();
+  initFlow();
   checkHealth();
   const tracker = createTracker();
   initSender(tracker);
@@ -702,11 +738,14 @@ async function start() {
     if (lane) diagram.play(lane);
   });
 
+  const loading = fetch("data/results.json").then((r) => {
+    if (!r.ok) throw new Error(String(r.status));
+    return r.json();
+  });
+  // The curtain counts while the measured results and the fonts load.
+  playCurtain({ reducedMotion, ready: Promise.allSettled([loading, document.fonts?.ready]) });
   try {
-    results = await fetch("data/results.json").then((r) => {
-      if (!r.ok) throw new Error(String(r.status));
-      return r.json();
-    });
+    results = await loading;
   } catch {
     document.querySelector("[data-results-intro]").textContent = "The measured results could not be loaded. Refresh the page to try again.";
     return;
