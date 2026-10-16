@@ -13,6 +13,7 @@ import os
 import boto3
 from pypdf import PdfReader
 
+from tracing import annotate, tracer
 from common import record_cost, start_timer
 
 s3 = boto3.client("s3")
@@ -91,18 +92,22 @@ def count_pages(bucket, key, size):
     return len(PdfReader(io.BytesIO(data)).pages), reader.requests + 1
 
 
+@tracer.capture_lambda_handler
 def handler(event, context):
     started = start_timer()
     ops = {"s3_gets": 0}
     extra = {"mode": event["mode"], "failed": True}
     try:
-        pages, ops["s3_gets"] = count_pages(event["bucket"], event["key"], int(event["sizeBytes"]))
+        annotate(docId=event["docId"], mode=event["mode"])
+        with tracer.provider.in_subsegment("## read page count"):
+            pages, ops["s3_gets"] = count_pages(event["bucket"], event["key"], int(event["sizeBytes"]))
         size_mb = int(event["sizeBytes"]) / (1024 * 1024)
 
         # Page count drives text-extraction time most strongly; size adds weight for
         # image-heavy files. One megabyte counts the same as ten pages.
         score = pages + 10 * size_mb
         lane = "light" if score <= LIGHT_MAX_SCORE else "heavy"
+        annotate(lane=lane, pages=pages)
         extra.update({"failed": False, "lane": lane, "pages": pages, "score": round(score, 2)})
         return {**event, "pages": pages, "sizeMb": round(size_mb, 3),
                 "score": round(score, 2), "lane": lane}

@@ -306,6 +306,11 @@ code { font-family: var(--mono); font-size: 0.9em; }
 .breakdown .num, .feed-table .num, .chart-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .breakdown td.num, .breakdown th.num { padding-left: 12px; }
 .receipt-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 18px; }
+.receipt-trace { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 14px 0 0; color: var(--ink-2); font-size: 0.875rem; }
+.receipt-trace[hidden] { display: none; }
+.receipt-trace span { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+.receipt-trace code { padding: 2px 6px; border: 1px solid var(--rule); border-radius: 3px; background: #fff; color: var(--ink); font-size: 0.8125rem; overflow-wrap: anywhere; }
+.receipt-trace .btn--text { min-height: 44px; }
 
 /* ---------- 02 Live ---------- */
 .kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0 24px; margin: 0 0 40px; border-top: 1px solid var(--rule-strong); }

@@ -18,6 +18,8 @@ import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.config import Config
 
+from tracing import annotate, tracer
+
 REGION = os.environ["AWS_REGION"]
 UPLOAD_BUCKET = os.environ["UPLOAD_BUCKET"]
 CURATED_BUCKET = os.environ["CURATED_BUCKET"]
@@ -45,10 +47,12 @@ def respond(status, body):
             "body": json.dumps(body, default=_plain)}
 
 
+@tracer.capture_lambda_handler
 def handler(event, context):
     method = event["requestContext"]["http"]["method"]
     path = event["rawPath"]
     params = event.get("pathParameters") or {}
+    annotate(route=event.get("routeKey"), docId=params.get("docId"))
     try:
         if method == "POST" and path == "/api/uploads":
             raw = event.get("body") or "{}"
@@ -119,6 +123,7 @@ def summarise(job, result=None, total=None):
         "costUsd": total.get("productionUsd"),
         "billedMs": total.get("billedMs"),
         "invocations": total.get("invocations"),
+        "traceId": job.get("traceId"),
     }
 
 

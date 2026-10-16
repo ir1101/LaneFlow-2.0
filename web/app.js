@@ -319,6 +319,11 @@ function createTracker() {
       note.textContent = `The validator read the first five bytes, found no PDF signature and queued nothing. Checking it cost ${usd(doc.costUsd)}.`;
     }
     fillBreakdown(doc);
+    // Sampled runs carry an X-Ray trace ID: paste it into CloudWatch traces to see the
+    // whole journey, with every S3 and DynamoDB call.
+    const trace = receipt.querySelector("[data-receipt-trace]");
+    trace.querySelector("[data-trace-id]").textContent = doc.traceId || "";
+    trace.hidden = !doc.traceId;
     receipt.hidden = false;
   }
 
@@ -406,6 +411,19 @@ function createTracker() {
     }
     tracked.timer = setTimeout(poll, 1200);
   }
+
+  const copyTrace = receipt.querySelector("[data-copy-trace]");
+  copyTrace.addEventListener("click", async () => {
+    const id = receipt.querySelector("[data-trace-id]").textContent;
+    try {
+      await navigator.clipboard.writeText(id);
+      copyTrace.textContent = "Copied";
+      say("Trace ID copied.");
+      setTimeout(() => { copyTrace.textContent = "Copy"; }, 1600);
+    } catch {
+      say("Copying is not available here. Select the trace ID and copy it instead.");
+    }
+  });
 
   viewText.addEventListener("click", async () => {
     if (!current?.docId) return;

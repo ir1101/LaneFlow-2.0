@@ -25,9 +25,19 @@ Globals:
     CodeUri: src/
     Timeout: 60
     MemorySize: 128
+    # X-Ray: every invocation is traced (subject to X-Ray's sampling), and SAM grants
+    # each role permission to send trace data.
+    Tracing: Active
+    Layers:
+      # Powertools for AWS Lambda, published by AWS. Supplies the tracer (and the X-Ray SDK)
+      # without bundling extra SDK copies into the functions. Version from the public SSM
+      # parameter /aws/service/powertools/python/arm64/python3.13/latest on 2026-10-16.
+      - !Sub "arn:aws:lambda:${AWS::Region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python313-arm64:39"
     Environment:
       Variables:
         TABLE_NAME: !Ref DocumentsTable
+        POWERTOOLS_SERVICE_NAME: laneflow
+        POWERTOOLS_TRACER_CAPTURE_RESPONSE: "false"  # keep document details out of traces
 
 Resources:
   # ---------- Storage ----------
@@ -57,6 +67,15 @@ Resources:
       OwnershipControls:
         Rules:
           - ObjectOwnership: BucketOwnerEnforced
+      # Originals are only needed until they are processed. Expiring them after 7 days
+      # caps storage cost and how long anyone's documents are kept.
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-uploads
+            Status: Enabled
+            ExpirationInDays: 7
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
 
   CuratedBucket:
     Type: AWS::S3::Bucket
@@ -75,6 +94,47 @@ Resources:
       OwnershipControls:
         Rules:
           - ObjectOwnership: BucketOwnerEnforced
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-extracted-text
+            Status: Enabled
+            ExpirationInDays: 30
+
+  # Every bucket refuses requests that do not use HTTPS, so documents never travel
+  # unencrypted. Principal "*" in a Deny restricts everyone; it grants nothing.
+  UploadBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref UploadBucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt UploadBucket.Arn
+              - !Sub "${UploadBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+
+  CuratedBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CuratedBucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt CuratedBucket.Arn
+              - !Sub "${CuratedBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
 
   DocumentsTable:
     Type: AWS::DynamoDB::Table
@@ -434,6 +494,9 @@ Resources:
     Properties:
       Name: laneflow-pipeline-express
       Type: EXPRESS
+      # Continues the dispatcher's X-Ray trace through every state and Lambda invocation.
+      Tracing:
+        Enabled: true
       # Express executions only appear in the console when logging is on. Level ALL
       # also records each run's start and end times, which the cost analysis uses.
       # Execution data (the documents' JSON) is left out to keep log volume down.
@@ -470,6 +533,14 @@ Resources:
             - Effect: Allow
               Action: sns:Publish
               Resource: !Ref NotificationTopic
+            # X-Ray accepts trace data only through these account-level actions.
+            - Effect: Allow
+              Action:
+                - xray:PutTraceSegments
+                - xray:PutTelemetryRecords
+                - xray:GetSamplingRules
+                - xray:GetSamplingTargets
+              Resource: "*"
             # Log delivery for Step Functions is set up through these account-level
             # actions, which AWS only supports on Resource "*".
             - Effect: Allow
@@ -564,6 +635,16 @@ Resources:
             Condition:
               StringEquals:
                 AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${WebDistribution}"
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt WebBucket.Arn
+              - !Sub "${WebBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
 
   # ---------- Monitoring ----------
   DeadLetterAlarm:

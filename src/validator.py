@@ -8,6 +8,7 @@ from urllib.parse import unquote_plus
 
 import boto3
 
+from tracing import annotate, tracer
 from common import TABLE, record_cost, start_timer, to_dynamo
 
 s3 = boto3.client("s3")
@@ -20,6 +21,7 @@ WEB_KEY = re.compile(r"^(?:adaptive|baseline)/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{
                      r"[0-9a-f]{4}-[0-9a-f]{12})/")
 
 
+@tracer.capture_lambda_handler
 def handler(event, context):
     for record in event["Records"]:
         started = start_timer()
@@ -50,6 +52,7 @@ def handler(event, context):
                 reason = "file content is not a PDF"
 
         job = {"docId": doc_id, "bucket": bucket, "key": key, "sizeBytes": size, "mode": mode}
+        annotate(docId=doc_id, mode=mode, outcome="rejected" if reason else "queued")
         # The job record is written before the message is queued. Otherwise the dispatcher
         # can pick the job up and record its execution first, and this write would then
         # overwrite that record (a race condition found during testing).

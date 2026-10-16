@@ -134,6 +134,11 @@
                 <tbody></tbody>
               </table>
               <p class="receipt-compare" data-receipt-compare></p>
+              <p class="receipt-trace" data-receipt-trace hidden>
+                <span>X-Ray trace</span>
+                <code data-trace-id></code>
+                <button class="btn btn--text" type="button" data-copy-trace>Copy</button>
+              </p>
               <div class="receipt-actions">
                 <button class="btn btn--secondary" type="button" data-view-text hidden>View extracted text</button>
                 <button class="btn btn--text" type="button" data-send-another>Send another</button>
@@ -372,6 +377,7 @@
           <li>Results go to DynamoDB, the text to the curated bucket, and SNS announces the outcome.</li>
           <li>A failed run is marked, moved to the dead letter queue and raises a CloudWatch alarm.</li>
           <li>The reconciler reads each function's billed duration from CloudWatch Logs and writes the actual cost back to DynamoDB.</li>
+          <li>X-Ray traces each document from the dispatcher through Step Functions to its lane, with every S3 and DynamoDB call shown as its own segment. Search CloudWatch traces with <code>annotation.docId</code> to find one document.</li>
         </ol>
       </div>
     </section>

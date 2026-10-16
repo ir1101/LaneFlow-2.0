@@ -17,6 +17,7 @@ import time
 import boto3
 from botocore.exceptions import ClientError
 
+from tracing import tracer
 from common import PRICES
 
 dynamodb = boto3.client("dynamodb")
@@ -84,6 +85,7 @@ def reconcile(item, billed_ms, memory_mb, init_ms):
     }))
 
 
+@tracer.capture_lambda_handler
 def handler(event, context):
     payload = json.loads(gzip.decompress(base64.b64decode(event["awslogs"]["data"])))
     for log_event in payload["logEvents"]:

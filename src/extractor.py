@@ -6,6 +6,7 @@ import time
 import boto3
 from pypdf import PdfReader
 
+from tracing import annotate, tracer
 from common import TABLE, record_cost, start_timer, to_dynamo
 
 s3 = boto3.client("s3")
@@ -13,6 +14,7 @@ LANE = os.environ["LANE"]  # light, heavy or baseline
 CURATED_BUCKET = os.environ["CURATED_BUCKET"]
 
 
+@tracer.capture_lambda_handler
 def handler(event, context):
     started = start_timer()
     ops = {"s3_gets": 0, "s3_puts": 0, "ddb_writes": 0}
@@ -20,11 +22,15 @@ def handler(event, context):
     try:
         data = s3.get_object(Bucket=event["bucket"], Key=event["key"])["Body"].read()
         ops["s3_gets"] += 1
-        reader = PdfReader(io.BytesIO(data))
-        text = "\n\n".join((page.extract_text() or "") for page in reader.pages)
-        meta = reader.metadata or {}
-        pages = len(reader.pages)
-        words = len(text.split())
+        annotate(docId=event["docId"], mode=event["mode"], lane=LANE)
+        # Parsing gets its own subsegment, so the trace separates computing from waiting.
+        with tracer.provider.in_subsegment("## extract text"):
+            reader = PdfReader(io.BytesIO(data))
+            text = "\n\n".join((page.extract_text() or "") for page in reader.pages)
+            meta = reader.metadata or {}
+            pages = len(reader.pages)
+            words = len(text.split())
+        annotate(pages=pages)
 
         s3.put_object(Bucket=CURATED_BUCKET, Key=f"text/{event['docId']}.txt",
                       Body=text.encode("utf-8"), ContentType="text/plain; charset=utf-8")
