@@ -279,7 +279,7 @@
           </div>
           <div data-reveal style="--d: 2">
             <h3>Large documents compute</h3>
-            <p>Extracting text from a large file is pure computation. Up to about 1769 MB, Lambda adds CPU in proportion to memory, so the job finishes sooner and the bill stays roughly level. Beyond that, a single-threaded job cannot use the extra CPU: in tuning, 3008 MB was no faster than 1769 MB and cost almost twice as much.</p>
+            <p>Extracting text from a large file is pure computation. Up to about 1769 MB, Lambda adds CPU in proportion to memory, so the job finishes sooner and the bill stays roughly level. Beyond that, a single-threaded job cannot use the extra CPU: in tuning, 3008 MB was no faster than 1769 MB on the 300-page PDF (2.15 s against 2.13 s) and cost about 1.7 times as much.</p>
           </div>
         </div>
 
@@ -421,7 +421,7 @@
           <li>The website API signs a short-lived, PDF-only upload form of at most 25 MB. The upload bucket is encrypted with LaneFlow's own KMS key, rotated yearly, accepts only HTTPS, and deletes uploads after 7 days.</li>
           <li>The upload raises an S3 event. The validator checks the file really is a PDF and queues a job in SQS.</li>
           <li>The dispatcher starts one Express Step Functions run per job, named after the document so it can be traced.</li>
-          <li>The classifier reads only the few kilobytes that hold the page count, scores pages and size, and a Choice state sends the file to the light (256 MB) or heavy (1024 MB) lane, sizes chosen by Power Tuning. Baseline runs skip the classifier and always use 3008 MB.</li>
+          <li>The classifier reads at most two 64 KB blocks of the file to find the page count (about 100 KB of a 2 MB, 300-page PDF), scores pages and size, and a Choice state sends the file to the light (256 MB) or heavy (1024 MB) lane, sizes chosen by Power Tuning. Baseline runs skip the classifier and always use 3008 MB.</li>
           <li>Results go to DynamoDB, the text to the curated bucket, and SNS announces the outcome.</li>
           <li>A failed run is marked, moved to the dead letter queue and raises a CloudWatch alarm.</li>
           <li>The reconciler reads each function's billed duration from CloudWatch Logs and writes the actual cost back to DynamoDB.</li>

@@ -75,7 +75,10 @@ export function renderResults(data, { reducedMotion }) {
   const method = document.querySelector("[data-method]");
   if (method) {
     const cold = data.coldStarts.adaptive + data.coldStarts.baseline;
-    method.textContent = `Method: ${data.rounds} rounds × ${data.files.length} sizes × 2 modes (${data.documents} documents). The ${cold} runs that paid a cold start are reported separately, and cost-record writes and detailed logs are treated as measurement overhead, not running cost.`;
+    const coldNote = cold === 0
+      ? "A warm-up round ran first, so no measured run paid a cold start."
+      : `The ${cold} ${cold === 1 ? "run that paid a cold start is" : "runs that paid a cold start are"} reported separately.`;
+    method.textContent = `Method: ${data.rounds} rounds × ${data.files.length} sizes × 2 modes (${data.documents} documents). ${coldNote} Cost-record writes and detailed logs are treated as measurement overhead, not running cost.`;
   }
 
   renderTable(data);

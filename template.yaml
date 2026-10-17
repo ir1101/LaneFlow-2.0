@@ -752,8 +752,8 @@ Resources:
               "properties": {
                 "title": "Documents per lane", "region": "${AWS::Region}", "stat": "Sum", "period": 300, "view": "timeSeries",
                 "metrics": [
-                  ["AWS/Lambda", "Invocations", "FunctionName", "laneflow-extract-light", {"label": "light lane (512 MB)"}],
-                  ["...", "laneflow-extract-heavy", {"label": "heavy lane (1769 MB)"}],
+                  ["AWS/Lambda", "Invocations", "FunctionName", "laneflow-extract-light", {"label": "light lane (256 MB)"}],
+                  ["...", "laneflow-extract-heavy", {"label": "heavy lane (1024 MB)"}],
                   ["...", "laneflow-extract-baseline", {"label": "baseline (3008 MB)"}]
                 ]
               }
